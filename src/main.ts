@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { ChunkManager } from "./ChunkManager";
 import { WorldGenerator } from "./WorldGenerator";
 import { CHUNK_SIZE } from "./Chunk";
+import { randInt } from "three/src/math/MathUtils.js";
 
 function createRenderer(): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -134,6 +135,7 @@ function setupControls(camera: THREE.Camera) {
   function update(deltaTime: number) {
     // Apply rotation
     camera.rotation.order = "YXZ";
+    camera.rotation.z = 0;
     camera.rotation.y = yaw;
     camera.rotation.x = pitch;
 
@@ -202,21 +204,22 @@ function createUI(chunkManager: ChunkManager) {
 }
 
 async function main(): Promise<void> {
+  const seed = randInt(0, 1000000);
   const renderer = createRenderer();
   const { scene, camera } = createScene();
 
   // Initialize world generator with a seed
   const worldGenerator = new WorldGenerator({
-    seed: 12345,
+    seed,
     seaLevel: 5,
     terrainScale: 0.05,
-    terrainHeight: 8,
+    terrainHeight: 11,
   });
 
   // Initialize chunk manager
   const chunkManager = new ChunkManager(scene, worldGenerator, {
-    renderDistance: 2,
-    unloadDistance: 3,
+    renderDistance: 3,
+    unloadDistance: 4,
   });
 
   // Load initial chunks around the player
