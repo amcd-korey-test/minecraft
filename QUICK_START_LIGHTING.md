@@ -11,20 +11,38 @@ Your Minecraft project now has a complete dynamic lighting and shadow system! He
 - Time progresses from dawn → noon → dusk → night
 - Different lighting colors for different times of day
 - Press **T** to toggle time progression on/off
+- **Visible sun and moon** that move across the sky!
 
-### 2. **Realistic Shadows**
+### 2. **Dynamic Sky Colors**
+- Sky color changes throughout the day:
+  - **Night**: Dark blue-black
+  - **Dawn**: Orange-red sunrise
+  - **Day**: Bright sky blue
+  - **Dusk**: Orange-red sunset
+  - **Evening**: Deep blue
+- Fog color adapts to match the sky
+- Smooth color transitions between phases
+
+### 3. **Realistic Shadows**
 - Hills and mountains cast shadows on lower terrain
 - Shadow intensity varies based on distance
 - Shadows move as the sun travels across the sky
 - Darker areas receive less light, lighter areas are bright
 
-### 3. **Block-Level Lighting**
+### 4. **Block-Level Lighting**
 - Each block has a light level from 0-15 (like Minecraft)
 - Light levels are visualized through vertex colors
 - Smooth brightness transitions based on light exposure
 - Blocks in shadow appear darker
 
-### 4. **Extensible for Future Features**
+### 5. **Visible Celestial Bodies**
+- **Sun**: Bright yellow sphere visible during the day
+- **Moon**: Pale blue-white sphere visible at night
+- Both fade in/out during sunrise/sunset
+- Move in realistic arcs across the sky
+- Positioned opposite each other
+
+### 6. **Extensible for Future Features**
 - Ready for torches, lava, glowstone, etc.
 - Simple API to add new light sources
 - Support for colored lighting
@@ -102,29 +120,37 @@ const LIGHTING_UPDATE_INTERVAL = 2000; // Milliseconds between updates
 
 ## Visual Effects
 
-### Dawn (06:00)
-- Orange/yellow sun
+### Dawn (05:30-07:00)
+- Orange-red sky
+- Sun rising from horizon
+- Moon setting on opposite side
 - Long shadows
 - Low ambient light
-- Atmospheric sunrise
+- Beautiful atmospheric sunrise
 
 ### Noon (12:00)  
-- Bright white sun
+- Bright sky blue
+- Bright yellow sun overhead
 - Short shadows
 - High visibility
 - Clear daylight
+- Moon below horizon
 
-### Dusk (18:00)
-- Orange/red sun
+### Dusk (17:00-18:30)
+- Orange-red sky
+- Sun setting on horizon
+- Moon rising on opposite side
 - Long shadows
 - Medium ambient light
 - Atmospheric sunset
 
 ### Night (00:00)
-- Blue-tinted moonlight
-- Very dark
+- Dark blue-black sky
+- Pale moon visible
+- Very dark terrain
 - Minimal ambient light
-- Stars visible (if implemented)
+- Sun below horizon
+- Mystical atmosphere
 
 ## Technical Details
 

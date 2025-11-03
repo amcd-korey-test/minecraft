@@ -15,7 +15,7 @@ function createRenderer(): THREE.WebGLRenderer {
 
 function createScene() {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb); // Sky blue
+  scene.background = new THREE.Color(0x87ceeb); // Sky blue (will be updated dynamically)
   scene.fog = new THREE.Fog(0x87ceeb, 50, 200);
 
   const camera = new THREE.PerspectiveCamera(
@@ -43,7 +43,27 @@ function createScene() {
   const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x545454, 0.3);
   scene.add(hemiLight);
 
-  return { scene, camera, sunLight, ambient };
+  // Create visible sun object
+  const sunGeometry = new THREE.SphereGeometry(8, 32, 32);
+  const sunMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffff00,
+    emissive: 0xffff00,
+    emissiveIntensity: 1.0,
+  });
+  const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+  scene.add(sun);
+
+  // Create visible moon object
+  const moonGeometry = new THREE.SphereGeometry(6, 32, 32);
+  const moonMaterial = new THREE.MeshBasicMaterial({
+    color: 0xccccee,
+    emissive: 0xaaaacc,
+    emissiveIntensity: 0.8,
+  });
+  const moon = new THREE.Mesh(moonGeometry, moonMaterial);
+  scene.add(moon);
+
+  return { scene, camera, sunLight, ambient, hemiLight, sun, moon };
 }
 
 function setupControls(camera: THREE.Camera) {
@@ -218,7 +238,7 @@ function createUI(chunkManager: ChunkManager) {
 async function main(): Promise<void> {
   const seed = randInt(0, 1000000);
   const renderer = createRenderer();
-  const { scene, camera, sunLight, ambient } = createScene();
+  const { scene, camera, sunLight, ambient, hemiLight, sun, moon } = createScene();
 
   // Initialize lighting system
   const lightingSystem = new LightingSystem({
@@ -304,9 +324,47 @@ async function main(): Promise<void> {
     // Update UI
     ui.update(camera);
 
+    // Update sky and fog colors based on time of day
+    const skyColor = lightingSystem.getSkyColor();
+    const fogColor = lightingSystem.getFogColor();
+    scene.background = skyColor;
+    scene.fog = new THREE.Fog(fogColor.getHex(), 50, 200);
+    hemiLight.color.copy(skyColor);
+
     // Update ambient light based on time of day
     const ambientLevel = lightingSystem.getAmbientLightLevel();
     ambient.intensity = ambientLevel / 20;
+
+    // Update sun and moon positions and visibility
+    const sunAngle = lightingSystem.getSunAngle();
+    const celestialDistance = 150;
+    
+    // Position sun
+    const sunX = Math.cos(sunAngle) * celestialDistance;
+    const sunY = Math.sin(sunAngle) * celestialDistance;
+    sun.position.set(sunX, sunY, 50);
+    
+    // Position moon (opposite side of sun)
+    const moonAngle = sunAngle + Math.PI;
+    const moonX = Math.cos(moonAngle) * celestialDistance;
+    const moonY = Math.sin(moonAngle) * celestialDistance;
+    moon.position.set(moonX, moonY, 50);
+
+    // Update visibility
+    const sunVisibility = lightingSystem.getSunVisibility();
+    const moonVisibility = lightingSystem.getMoonVisibility();
+    sun.visible = sunVisibility > 0;
+    moon.visible = moonVisibility > 0;
+    
+    // Update sun/moon opacity based on visibility
+    if (sun.material instanceof THREE.MeshBasicMaterial) {
+      sun.material.opacity = sunVisibility;
+      sun.material.transparent = sunVisibility < 1;
+    }
+    if (moon.material instanceof THREE.MeshBasicMaterial) {
+      moon.material.opacity = moonVisibility;
+      moon.material.transparent = moonVisibility < 1;
+    }
 
     // Render scene
     renderer.render(scene, camera);

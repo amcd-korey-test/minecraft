@@ -307,4 +307,130 @@ export class LightingSystem {
       return 8;
     }
   }
+
+  /**
+   * Get sky color based on current time of day
+   */
+  getSkyColor(): THREE.Color {
+    const normalizedTime = this.config.timeOfDay / 24000;
+    
+    // Define key times and colors
+    const skyColors = {
+      night: new THREE.Color(0x0a0a1a),      // Dark blue-black
+      dawn: new THREE.Color(0xff6b4a),       // Orange-red
+      morning: new THREE.Color(0x87ceeb),    // Sky blue
+      noon: new THREE.Color(0x87ceeb),       // Sky blue (brighter)
+      afternoon: new THREE.Color(0x87ceeb),  // Sky blue
+      dusk: new THREE.Color(0xff6b4a),       // Orange-red
+      evening: new THREE.Color(0x1a1a3a),    // Deep blue
+    };
+
+    // Interpolate between colors based on time
+    if (normalizedTime < 0.23) {
+      // Night (0:00 - 5:30)
+      return skyColors.night;
+    } else if (normalizedTime < 0.27) {
+      // Dawn transition (5:30 - 6:30)
+      const t = (normalizedTime - 0.23) / 0.04;
+      return this.lerpColor(skyColors.night, skyColors.dawn, t);
+    } else if (normalizedTime < 0.29) {
+      // Dawn to morning (6:30 - 7:00)
+      const t = (normalizedTime - 0.27) / 0.02;
+      return this.lerpColor(skyColors.dawn, skyColors.morning, t);
+    } else if (normalizedTime < 0.71) {
+      // Day (7:00 - 17:00)
+      return skyColors.noon;
+    } else if (normalizedTime < 0.73) {
+      // Afternoon to dusk (17:00 - 17:30)
+      const t = (normalizedTime - 0.71) / 0.02;
+      return this.lerpColor(skyColors.afternoon, skyColors.dusk, t);
+    } else if (normalizedTime < 0.77) {
+      // Dusk to evening (17:30 - 18:30)
+      const t = (normalizedTime - 0.73) / 0.04;
+      return this.lerpColor(skyColors.dusk, skyColors.evening, t);
+    } else {
+      // Evening to night (18:30 - 24:00)
+      const t = (normalizedTime - 0.77) / 0.23;
+      return this.lerpColor(skyColors.evening, skyColors.night, t);
+    }
+  }
+
+  /**
+   * Get fog color based on current time of day
+   */
+  getFogColor(): THREE.Color {
+    // Fog color matches sky color but slightly darker
+    const skyColor = this.getSkyColor();
+    return new THREE.Color(
+      skyColor.r * 0.9,
+      skyColor.g * 0.9,
+      skyColor.b * 0.9
+    );
+  }
+
+  /**
+   * Linear interpolation between two colors
+   */
+  private lerpColor(color1: THREE.Color, color2: THREE.Color, t: number): THREE.Color {
+    const result = new THREE.Color();
+    result.r = color1.r + (color2.r - color1.r) * t;
+    result.g = color1.g + (color2.g - color1.g) * t;
+    result.b = color1.b + (color2.b - color1.b) * t;
+    return result;
+  }
+
+  /**
+   * Get sun visibility (0 = not visible, 1 = fully visible)
+   */
+  getSunVisibility(): number {
+    const normalizedTime = this.config.timeOfDay / 24000;
+    
+    if (normalizedTime < 0.25) {
+      // Night - sun not visible
+      return 0;
+    } else if (normalizedTime < 0.27) {
+      // Sunrise transition
+      return (normalizedTime - 0.25) / 0.02;
+    } else if (normalizedTime < 0.73) {
+      // Day - sun fully visible
+      return 1;
+    } else if (normalizedTime < 0.75) {
+      // Sunset transition
+      return 1 - ((normalizedTime - 0.73) / 0.02);
+    } else {
+      // Night - sun not visible
+      return 0;
+    }
+  }
+
+  /**
+   * Get moon visibility (0 = not visible, 1 = fully visible)
+   */
+  getMoonVisibility(): number {
+    const normalizedTime = this.config.timeOfDay / 24000;
+    
+    if (normalizedTime < 0.23) {
+      // Night - moon visible
+      return 1;
+    } else if (normalizedTime < 0.27) {
+      // Dawn - moon fading
+      return 1 - ((normalizedTime - 0.23) / 0.04);
+    } else if (normalizedTime < 0.73) {
+      // Day - moon not visible
+      return 0;
+    } else if (normalizedTime < 0.77) {
+      // Dusk - moon appearing
+      return (normalizedTime - 0.73) / 0.04;
+    } else {
+      // Night - moon visible
+      return 1;
+    }
+  }
+
+  /**
+   * Get current sun angle (for positioning sun/moon objects)
+   */
+  getSunAngle(): number {
+    return this.sunAngle;
+  }
 }
