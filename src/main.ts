@@ -3,6 +3,7 @@ import { ChunkManager } from "./ChunkManager";
 import { WorldGenerator } from "./WorldGenerator";
 import { CHUNK_SIZE } from "./Chunk";
 import { randInt } from "three/src/math/MathUtils.js";
+import { LightingManager } from "./LightingManager";
 
 function createRenderer(): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -28,19 +29,13 @@ function createScene() {
   camera.lookAt(0, CHUNK_SIZE / 2, 0);
   scene.add(camera);
 
-  // Directional light (sun)
-  const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
-  sunLight.position.set(50, 100, 50);
-  sunLight.castShadow = true;
-  scene.add(sunLight);
+  // Note: We're using a custom lighting system now via LightingManager
+  // Keep minimal Three.js lights for compatibility, but reduce their intensity
+  // The dynamic lighting is handled by vertex colors
 
-  // Ambient light
-  const ambient = new THREE.AmbientLight(0x404040, 0.5);
+  // Minimal ambient light (most lighting is calculated dynamically)
+  const ambient = new THREE.AmbientLight(0x404040, 0.2);
   scene.add(ambient);
-
-  // Hemisphere light for better outdoor lighting
-  const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x545454, 0.5);
-  scene.add(hemiLight);
 
   return { scene, camera };
 }
@@ -167,7 +162,7 @@ function setupControls(camera: THREE.Camera) {
   return { update };
 }
 
-function createUI(chunkManager: ChunkManager) {
+function createUI(chunkManager: ChunkManager, lightingManager: LightingManager) {
   const infoDiv = document.createElement("div");
   infoDiv.style.position = "absolute";
   infoDiv.style.top = "10px";
@@ -181,7 +176,7 @@ function createUI(chunkManager: ChunkManager) {
   infoDiv.style.pointerEvents = "none";
   document.body.appendChild(infoDiv);
 
-  function update(camera: THREE.Camera) {
+  function update(camera: THREE.Camera, sunAngle: number) {
     const pos = camera.position;
     const chunkPos = {
       x: Math.floor(pos.x / CHUNK_SIZE),
@@ -189,14 +184,18 @@ function createUI(chunkManager: ChunkManager) {
       z: Math.floor(pos.z / CHUNK_SIZE),
     };
 
+    const sunPos = lightingManager.getSunLight().position;
+
     infoDiv.innerHTML = `
-      <strong>Minecraft World Demo</strong><br>
+      <strong>Minecraft World Demo - Dynamic Lighting</strong><br>
       Click to lock mouse<br>
       WASD: Move | Space/Shift: Up/Down<br><br>
       Position: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}<br>
       Chunk: ${chunkPos.x}, ${chunkPos.y}, ${chunkPos.z}<br>
       Loaded Chunks: ${chunkManager.getLoadedChunkCount()}<br>
-      Seed: ${chunkManager.getWorldGenerator().getSeed()}
+      Seed: ${chunkManager.getWorldGenerator().getSeed()}<br>
+      Sun Angle: ${(sunAngle * 180 / Math.PI).toFixed(0)}°<br>
+      Sun Dir: (${sunPos.x.toFixed(2)}, ${sunPos.y.toFixed(2)}, ${sunPos.z.toFixed(2)})
     `;
   }
 
@@ -222,6 +221,10 @@ async function main(): Promise<void> {
     unloadDistance: 4,
   });
 
+  // Initialize lighting manager with dynamic lighting support
+  const lightingManager = new LightingManager(chunkManager);
+  chunkManager.setLightingManager(lightingManager);
+
   // Load initial chunks around the player
   await chunkManager.updateChunks(camera.position);
 
@@ -229,7 +232,7 @@ async function main(): Promise<void> {
   const controls = setupControls(camera);
 
   // Create UI
-  const ui = createUI(chunkManager);
+  const ui = createUI(chunkManager, lightingManager);
 
   // Resize handler
   function onResize() {
@@ -245,6 +248,9 @@ async function main(): Promise<void> {
 
   // Animation loop
   let lastTime = performance.now();
+  let sunAngle = Math.PI / 3; // Start at 60 degrees
+  let lastLightingUpdate = 0;
+  const lightingUpdateInterval = 100; // Update lighting every 100ms
 
   function animate() {
     const currentTime = performance.now();
@@ -257,8 +263,27 @@ async function main(): Promise<void> {
     // Update chunks based on camera position
     chunkManager.updateChunks(camera.position);
 
+    // Animate sun position (day/night cycle) - rotates around the world
+    // Sun moves slowly to create dynamic shadows
+    sunAngle += deltaTime * 0.1; // Rotate 0.1 radians per second
+    const sunRadius = 1.0; // Unit sphere for directional light
+    const sunX = Math.cos(sunAngle) * sunRadius;
+    const sunY = Math.sin(sunAngle) * sunRadius;
+    const sunZ = 0.5;
+
+    const newSunDirection = new THREE.Vector3(sunX, sunY, sunZ).normalize();
+    lightingManager.updateSunPosition(newSunDirection);
+
+    // Periodically regenerate chunk meshes to show lighting updates
+    // This demonstrates dynamic lighting - in a real game, you'd only update
+    // chunks that are affected by lighting changes
+    if (currentTime - lastLightingUpdate > lightingUpdateInterval) {
+      chunkManager.regenerateAllChunkMeshes();
+      lastLightingUpdate = currentTime;
+    }
+
     // Update UI
-    ui.update(camera);
+    ui.update(camera, sunAngle);
 
     // Render scene
     renderer.render(scene, camera);
@@ -267,9 +292,10 @@ async function main(): Promise<void> {
 
   animate();
 
-  console.log("Minecraft world initialized!");
+  console.log("Minecraft world initialized with dynamic lighting!");
   console.log(`World seed: ${worldGenerator.getSeed()}`);
   console.log("Controls: WASD to move, Space/Shift for up/down, Mouse to look around");
+  console.log("Watch the shadows move as the sun rotates!");
 }
 
 main();

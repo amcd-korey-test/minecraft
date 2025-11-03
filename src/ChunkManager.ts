@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { Chunk, ChunkPosition, CHUNK_SIZE } from "./Chunk";
 import { WorldGenerator } from "./WorldGenerator";
+import { LightingManager } from "./LightingManager";
 
 /**
  * Configuration for chunk management
@@ -28,6 +29,7 @@ export class ChunkManager {
   private worldGenerator: WorldGenerator;
   private config: ChunkManagerConfig;
   private lastPlayerChunkPosition: ChunkPosition | null = null;
+  private lightingManager: LightingManager | null = null;
 
   constructor(
     scene: THREE.Scene,
@@ -37,6 +39,13 @@ export class ChunkManager {
     this.scene = scene;
     this.worldGenerator = worldGenerator;
     this.config = { ...DEFAULT_CHUNK_MANAGER_CONFIG, ...config };
+  }
+
+  /**
+   * Set the lighting manager for dynamic lighting
+   */
+  setLightingManager(lightingManager: LightingManager): void {
+    this.lightingManager = lightingManager;
   }
 
   /**
@@ -112,8 +121,8 @@ export class ChunkManager {
       // Generate chunk data asynchronously
       const chunk = await this.worldGenerator.generateChunk(position);
 
-      // Generate mesh for the chunk
-      const mesh = chunk.generateMesh();
+      // Generate mesh for the chunk with lighting
+      const mesh = chunk.generateMesh(this.lightingManager || undefined);
       this.scene.add(mesh);
 
       // Store chunk
@@ -224,5 +233,25 @@ export class ChunkManager {
    */
   getWorldGenerator(): WorldGenerator {
     return this.worldGenerator;
+  }
+
+  /**
+   * Regenerate all chunk meshes (useful after lighting changes)
+   */
+  regenerateAllChunkMeshes(): void {
+    for (const chunk of this.chunks.values()) {
+      // Remove old mesh
+      const oldMesh = chunk.getMesh();
+      if (oldMesh) {
+        this.scene.remove(oldMesh);
+      }
+
+      // Dispose old resources
+      chunk.dispose();
+
+      // Generate new mesh with updated lighting
+      const newMesh = chunk.generateMesh(this.lightingManager || undefined);
+      this.scene.add(newMesh);
+    }
   }
 }

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { BlockType, BLOCK_CONFIG } from "./blocks";
+import { LightingManager } from "./LightingManager";
 
 /**
  * Position identifier for a chunk in the world
@@ -61,7 +62,7 @@ export class Chunk {
   /**
    * Generate mesh for this chunk using greedy meshing for optimization
    */
-  generateMesh(): THREE.Mesh {
+  generateMesh(lightingManager?: LightingManager): THREE.Mesh {
     const geometry = new THREE.BufferGeometry();
     const vertices: number[] = [];
     const colors: number[] = [];
@@ -91,6 +92,7 @@ export class Chunk {
             // Front face (+Z)
             {
               check: () => this.shouldRenderFace(x, y, z + 1),
+              normal: new THREE.Vector3(0, 0, 1),
               vertices: [
                 [worldX, worldY, worldZ + 1],
                 [worldX + 1, worldY, worldZ + 1],
@@ -101,6 +103,7 @@ export class Chunk {
             // Back face (-Z)
             {
               check: () => this.shouldRenderFace(x, y, z - 1),
+              normal: new THREE.Vector3(0, 0, -1),
               vertices: [
                 [worldX + 1, worldY, worldZ],
                 [worldX, worldY, worldZ],
@@ -111,6 +114,7 @@ export class Chunk {
             // Right face (+X)
             {
               check: () => this.shouldRenderFace(x + 1, y, z),
+              normal: new THREE.Vector3(1, 0, 0),
               vertices: [
                 [worldX + 1, worldY, worldZ + 1],
                 [worldX + 1, worldY, worldZ],
@@ -121,6 +125,7 @@ export class Chunk {
             // Left face (-X)
             {
               check: () => this.shouldRenderFace(x - 1, y, z),
+              normal: new THREE.Vector3(-1, 0, 0),
               vertices: [
                 [worldX, worldY, worldZ],
                 [worldX, worldY, worldZ + 1],
@@ -131,6 +136,7 @@ export class Chunk {
             // Top face (+Y)
             {
               check: () => this.shouldRenderFace(x, y + 1, z),
+              normal: new THREE.Vector3(0, 1, 0),
               vertices: [
                 [worldX, worldY + 1, worldZ + 1],
                 [worldX + 1, worldY + 1, worldZ + 1],
@@ -141,6 +147,7 @@ export class Chunk {
             // Bottom face (-Y)
             {
               check: () => this.shouldRenderFace(x, y - 1, z),
+              normal: new THREE.Vector3(0, -1, 0),
               vertices: [
                 [worldX, worldY, worldZ],
                 [worldX + 1, worldY, worldZ],
@@ -153,10 +160,19 @@ export class Chunk {
           // Render each face if needed
           for (const face of faces) {
             if (face.check()) {
+              // Calculate lighting for this face
+              const faceLighting = lightingManager
+                ? this.calculateFaceLighting(face.vertices, face.normal, lightingManager)
+                : [1, 1, 1, 1]; // Default full brightness if no lighting manager
+
               // Add vertices for this face
-              for (const vertex of face.vertices) {
+              for (let i = 0; i < face.vertices.length; i++) {
+                const vertex = face.vertices[i];
                 vertices.push(vertex[0], vertex[1], vertex[2]);
-                colors.push(color.r, color.g, color.b);
+
+                // Apply lighting to color
+                const brightness = faceLighting[i];
+                colors.push(color.r * brightness, color.g * brightness, color.b * brightness);
               }
 
               // Add indices for two triangles (quad)
@@ -198,6 +214,31 @@ export class Chunk {
   private shouldRenderFace(x: number, y: number, z: number): boolean {
     const adjacentBlock = this.getBlock(x, y, z);
     return adjacentBlock === BlockType.AIR || BLOCK_CONFIG[adjacentBlock].transparent;
+  }
+
+  /**
+   * Calculate lighting values for each vertex of a face
+   * Returns an array of 4 brightness values (one per vertex)
+   */
+  private calculateFaceLighting(
+    vertices: number[][],
+    normal: THREE.Vector3,
+    lightingManager: LightingManager
+  ): number[] {
+    const lighting: number[] = [];
+
+    // Calculate lighting for each vertex
+    for (const vertex of vertices) {
+      const position = new THREE.Vector3(vertex[0], vertex[1], vertex[2]);
+
+      // Offset position slightly towards the normal to avoid self-shadowing
+      position.add(normal.clone().multiplyScalar(0.01));
+
+      const brightness = lightingManager.calculateLightingAtPosition(position, normal);
+      lighting.push(brightness);
+    }
+
+    return lighting;
   }
 
   /**

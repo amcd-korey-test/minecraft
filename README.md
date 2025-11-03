@@ -7,9 +7,11 @@ A Minecraft-inspired 3D web application built with Three.js, TypeScript, and Bun
 This project is a web-based 3D application that serves as a foundation for creating Minecraft-style games or visualizations using Three.js. It features a modern TypeScript setup with Bun for ultra-fast builds and hot-reloading during development.
 
 The current implementation includes:
+- **Dynamic Lighting System** with real-time shadow casting
+- Procedural voxel terrain generation (Minecraft-style)
+- Chunk-based world management with LOD
+- First-person camera controls (WASD + mouse)
 - 3D scene rendering with WebGL
-- Basic lighting setup (directional and ambient)
-- Animated 3D cube demo
 - Responsive canvas that adapts to window resizing
 - Modern development workflow with hot module reloading
 
@@ -99,49 +101,146 @@ python -m http.server 8000 --directory .
 ```
 minecraft-threejs/
 ├── src/
-│   └── main.ts          # Main application entry point with Three.js setup
-├── tools/
-│   └── dev.ts           # Development server with hot-reloading
-├── dist/                # Build output directory (generated)
-├── index.html           # HTML entry point
-├── package.json         # Project configuration and dependencies
-├── tsconfig.json        # TypeScript configuration
-└── README.md           # This file
+│   ├── main.ts              # Main application entry point
+│   ├── LightingManager.ts   # Dynamic lighting and shadow system
+│   ├── ChunkManager.ts      # Chunk loading/unloading management
+│   ├── Chunk.ts             # Individual chunk with mesh generation
+│   ├── WorldGenerator.ts    # Procedural terrain generation
+│   ├── blocks.ts            # Block type definitions
+│   ├── SeededRandom.ts      # Seeded random number generator
+│   └── index.html           # HTML entry point
+├── examples/
+│   └── adding-torch-light.ts # Example: Adding point light sources
+├── dist/                    # Build output directory (generated)
+├── package.json             # Project configuration and dependencies
+├── tsconfig.json            # TypeScript configuration
+├── README.md                # This file
+├── LIGHTING_SYSTEM.md       # Detailed lighting system documentation
+└── WORLD_GENERATION.md      # World generation documentation
 ```
 
 ### Key Files
 
-- **`src/main.ts`**: Contains the main Three.js application logic including:
-  - Scene setup with camera, lights, and objects
+- **`src/main.ts`**: Main application entry point:
+  - Scene setup with camera and lights
   - Renderer configuration
-  - Animation loop
-  - Window resize handling
+  - Animation loop with dynamic sun movement
+  - Player controls (WASD + mouse)
+  - Lighting system integration
 
-- **`tools/dev.ts`**: Custom development server that:
-  - Bundles TypeScript files with Bun
-  - Watches for file changes
-  - Serves the application with hot-reloading
+- **`src/LightingManager.ts`**: Dynamic lighting system:
+  - Calculates per-vertex lighting
+  - Handles directional (sun) and point lights (torches)
+  - Shadow casting via raycasting
+  - Extensible for future light sources
 
-- **`index.html`**: Minimal HTML template that loads the bundled JavaScript
+- **`src/ChunkManager.ts`**: Manages world chunks:
+  - Loads/unloads chunks based on player position
+  - Integrates with lighting system
+  - Handles mesh regeneration
+
+- **`src/Chunk.ts`**: Individual chunk implementation:
+  - 16x16x16 block storage
+  - Mesh generation with lighting
+  - Face culling optimization
+
+- **`src/WorldGenerator.ts`**: Procedural terrain:
+  - Seeded noise-based generation
+  - Multiple biomes (grass, sand, water, stone)
+  - Configurable terrain parameters
+
+- **`src/blocks.ts`**: Block definitions and properties
+  - Block types (grass, stone, water, glowstone, etc.)
+  - Visual properties (color, transparency)
+  - Light emission properties
 
 ## 🛠️ Development
 
 ### Code Structure
 
-The main application (`src/main.ts`) is organized into several functions:
+The main application is organized into modular components:
 
-- `createRenderer()`: Initializes the WebGL renderer with proper pixel ratio and canvas setup
-- `createScene()`: Sets up the 3D scene, camera, lights, and objects
-- `main()`: Entry point that ties everything together and starts the animation loop
+- **Rendering**: `main.ts` handles scene setup and animation loop
+- **Lighting**: `LightingManager.ts` calculates dynamic lighting and shadows
+- **World**: `ChunkManager.ts` and `WorldGenerator.ts` handle terrain
+- **Blocks**: `Chunk.ts` and `blocks.ts` define block behavior
+
+### Key Features
+
+#### 🌟 Dynamic Lighting System
+- **Real-time shadows**: Terrain casts shadows based on sun position
+- **Moving sun**: Demonstrates dynamic lighting with rotating sun
+- **Point light support**: Add torches, lamps, or glowing blocks
+- **Per-vertex lighting**: Efficient lighting calculation baked into vertex colors
+
+See `LIGHTING_SYSTEM.md` for detailed documentation.
+
+#### 🌍 Procedural World Generation
+- **Infinite terrain**: Chunks load/unload as player moves
+- **Seeded generation**: Reproducible worlds from seeds
+- **Multiple biomes**: Grass, sand, water, stone, bedrock
+- **Configurable**: Adjust terrain scale, height, sea level
+
+See `WORLD_GENERATION.md` for detailed documentation.
+
+#### 🎮 Player Controls
+- **Movement**: WASD keys to move, Space/Shift for up/down
+- **Camera**: Mouse to look around (click to lock pointer)
+- **Free flight**: Explore the world in creative mode
 
 ### Customization
 
-To add your own 3D objects or modify the scene:
+#### Adding a Torch/Light Source
 
-1. Edit `src/main.ts`
-2. Modify the `createScene()` function to add new objects
-3. Update the animation loop to add custom animations
-4. The dev server will automatically reload your changes
+```typescript
+// See examples/adding-torch-light.ts for complete examples
+
+// Add a torch at position
+lightingManager.addLightSource('torch-1', {
+  position: new THREE.Vector3(10, 5, 10),
+  intensity: 0.8,
+  range: 10,
+  color: new THREE.Color(1.0, 0.6, 0.2),
+  type: 'point'
+});
+
+// Regenerate chunks to show lighting
+chunkManager.regenerateAllChunkMeshes();
+```
+
+#### Modifying Terrain Generation
+
+```typescript
+// In main.ts, adjust WorldGenerator config
+const worldGenerator = new WorldGenerator({
+  seed: 12345,
+  seaLevel: 5,        // Water level
+  terrainScale: 0.05,  // Frequency of hills
+  terrainHeight: 11    // Max height variation
+});
+```
+
+#### Adding New Block Types
+
+```typescript
+// In blocks.ts, add to BlockType enum and BLOCK_CONFIG
+export enum BlockType {
+  // ... existing blocks
+  TORCH = 8,
+}
+
+export const BLOCK_CONFIG: Record<BlockType, BlockProperties> = {
+  // ... existing blocks
+  [BlockType.TORCH]: {
+    type: BlockType.TORCH,
+    name: 'Torch',
+    color: 0xffaa00,
+    transparent: false,
+    emitsLight: true,
+    lightLevel: 14
+  }
+};
+```
 
 ### TypeScript Configuration
 
@@ -206,21 +305,32 @@ This project does not currently specify a license. Please contact the repository
 
 ## 🔗 Resources
 
+### Documentation
 - [Three.js Documentation](https://threejs.org/docs/)
 - [Bun Documentation](https://bun.sh/docs)
 - [TypeScript Documentation](https://www.typescriptlang.org/docs/)
 - [WebGL Fundamentals](https://webglfundamentals.org/)
 
+### Project Documentation
+- `LIGHTING_SYSTEM.md` - Comprehensive guide to the dynamic lighting system
+- `WORLD_GENERATION.md` - World generation and terrain details
+- `examples/adding-torch-light.ts` - Example code for adding light sources
+
 ## 🎨 Future Enhancements
 
 Potential features to implement:
-- Minecraft-style voxel terrain generation
-- Player controls and camera movement
+- ✅ ~~Minecraft-style voxel terrain generation~~ (Implemented)
+- ✅ ~~Player controls and camera movement~~ (Implemented)
+- ✅ ~~Dynamic lighting and shadows~~ (Implemented)
 - Block placement and destruction
-- Texture loading and materials
+- Texture loading and materials (currently using solid colors)
 - Multiplayer support
-- World persistence
-- More complex lighting and shadows
+- World persistence (save/load worlds)
+- Day/night cycle with adjustable speed
+- Biome-specific block generation
+- Cave systems and underground structures
+- Ambient occlusion for corner darkening
+- Water physics and transparency
 
 ---
 
