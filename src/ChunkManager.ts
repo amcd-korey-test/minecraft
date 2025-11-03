@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { Chunk, ChunkPosition, CHUNK_SIZE } from "./Chunk";
 import { WorldGenerator } from "./WorldGenerator";
+import { LightingSystem } from "./LightingSystem";
+import { BlockType } from "./blocks";
 
 /**
  * Configuration for chunk management
@@ -26,16 +28,19 @@ export class ChunkManager {
   private loadingChunks: Set<string> = new Set();
   private scene: THREE.Scene;
   private worldGenerator: WorldGenerator;
+  private lightingSystem: LightingSystem;
   private config: ChunkManagerConfig;
   private lastPlayerChunkPosition: ChunkPosition | null = null;
 
   constructor(
     scene: THREE.Scene,
     worldGenerator: WorldGenerator,
+    lightingSystem: LightingSystem,
     config: Partial<ChunkManagerConfig> = {}
   ) {
     this.scene = scene;
     this.worldGenerator = worldGenerator;
+    this.lightingSystem = lightingSystem;
     this.config = { ...DEFAULT_CHUNK_MANAGER_CONFIG, ...config };
   }
 
@@ -112,6 +117,9 @@ export class ChunkManager {
       // Generate chunk data asynchronously
       const chunk = await this.worldGenerator.generateChunk(position);
 
+      // Calculate lighting for the chunk
+      this.calculateChunkLighting(chunk);
+
       // Generate mesh for the chunk
       const mesh = chunk.generateMesh();
       this.scene.add(mesh);
@@ -123,6 +131,60 @@ export class ChunkManager {
     } finally {
       this.loadingChunks.delete(key);
     }
+  }
+
+  /**
+   * Calculate lighting for all blocks in a chunk
+   */
+  private calculateChunkLighting(chunk: Chunk): void {
+    for (let y = 0; y < CHUNK_SIZE; y++) {
+      for (let z = 0; z < CHUNK_SIZE; z++) {
+        for (let x = 0; x < CHUNK_SIZE; x++) {
+          // Skip air blocks (no need to calculate lighting)
+          if (chunk.getBlock(x, y, z) === BlockType.AIR) {
+            continue;
+          }
+
+          // World position
+          const worldX = chunk.position.x * CHUNK_SIZE + x;
+          const worldY = chunk.position.y * CHUNK_SIZE + y;
+          const worldZ = chunk.position.z * CHUNK_SIZE + z;
+
+          // Calculate light level using the lighting system
+          const lightLevel = this.lightingSystem.calculateLightLevel(
+            worldX,
+            worldY,
+            worldZ,
+            (wx, wy, wz) => this.getBlockAtWorldPosition(wx, wy, wz)
+          );
+
+          chunk.setLightLevel(x, y, z, lightLevel);
+        }
+      }
+    }
+  }
+
+  /**
+   * Get block type at world position (checks all loaded chunks)
+   */
+  getBlockAtWorldPosition(worldX: number, worldY: number, worldZ: number): BlockType {
+    const chunkPos: ChunkPosition = {
+      x: Math.floor(worldX / CHUNK_SIZE),
+      y: Math.floor(worldY / CHUNK_SIZE),
+      z: Math.floor(worldZ / CHUNK_SIZE),
+    };
+
+    const chunk = this.getChunk(chunkPos);
+    if (!chunk) {
+      // Chunk not loaded, assume air
+      return BlockType.AIR;
+    }
+
+    const localX = ((worldX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+    const localY = ((worldY % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+    const localZ = ((worldZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+
+    return chunk.getBlock(localX, localY, localZ);
   }
 
   /**
@@ -224,5 +286,30 @@ export class ChunkManager {
    */
   getWorldGenerator(): WorldGenerator {
     return this.worldGenerator;
+  }
+
+  /**
+   * Get lighting system (for external access)
+   */
+  getLightingSystem(): LightingSystem {
+    return this.lightingSystem;
+  }
+
+  /**
+   * Recalculate lighting for all loaded chunks (call after sun moves)
+   */
+  recalculateAllLighting(): void {
+    for (const chunk of this.chunks.values()) {
+      this.calculateChunkLighting(chunk);
+      
+      // Regenerate mesh with new lighting
+      const oldMesh = chunk.getMesh();
+      if (oldMesh) {
+        this.scene.remove(oldMesh);
+      }
+      
+      const newMesh = chunk.generateMesh();
+      this.scene.add(newMesh);
+    }
   }
 }

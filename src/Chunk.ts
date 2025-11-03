@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { BlockType, BLOCK_CONFIG } from "./blocks";
+import { LightingSystem } from "./LightingSystem";
 
 /**
  * Position identifier for a chunk in the world
@@ -21,12 +22,15 @@ export const CHUNK_SIZE = 16; // 16x16x16 blocks per chunk
 export class Chunk {
   public readonly position: ChunkPosition;
   private blocks: Uint8Array; // Stores block types as 8-bit integers
+  private lightLevels: Uint8Array; // Stores light levels (0-15) for each block
   private mesh: THREE.Mesh | null = null;
 
   constructor(position: ChunkPosition) {
     this.position = position;
     // Initialize block array (flattened 3D array)
     this.blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+    // Initialize light levels (default to 0)
+    this.lightLevels = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
   }
 
   /**
@@ -59,7 +63,30 @@ export class Chunk {
   }
 
   /**
+   * Get light level at local chunk coordinates (0 to CHUNK_SIZE-1)
+   */
+  getLightLevel(x: number, y: number, z: number): number {
+    if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_SIZE || z < 0 || z >= CHUNK_SIZE) {
+      return 0;
+    }
+    const index = x + y * CHUNK_SIZE + z * CHUNK_SIZE * CHUNK_SIZE;
+    return this.lightLevels[index];
+  }
+
+  /**
+   * Set light level at local chunk coordinates
+   */
+  setLightLevel(x: number, y: number, z: number, level: number): void {
+    if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_SIZE || z < 0 || z >= CHUNK_SIZE) {
+      return;
+    }
+    const index = x + y * CHUNK_SIZE + z * CHUNK_SIZE * CHUNK_SIZE;
+    this.lightLevels[index] = Math.max(0, Math.min(15, level));
+  }
+
+  /**
    * Generate mesh for this chunk using greedy meshing for optimization
+   * Now includes dynamic lighting based on light levels
    */
   generateMesh(): THREE.Mesh {
     const geometry = new THREE.BufferGeometry();
@@ -79,7 +106,14 @@ export class Chunk {
           if (blockType === BlockType.AIR) continue;
 
           const blockConfig = BLOCK_CONFIG[blockType];
-          const color = new THREE.Color(blockConfig.color);
+          const baseColor = new THREE.Color(blockConfig.color);
+          
+          // Get light level for this block
+          const lightLevel = this.getLightLevel(x, y, z);
+          const brightness = LightingSystem.lightLevelToBrightness(lightLevel);
+          
+          // Apply brightness to color
+          const color = baseColor.clone().multiplyScalar(brightness);
 
           // World position of this block
           const worldX = this.position.x * CHUNK_SIZE + x;

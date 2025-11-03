@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { ChunkManager } from "./ChunkManager";
 import { WorldGenerator } from "./WorldGenerator";
+import { LightingSystem } from "./LightingSystem";
 import { CHUNK_SIZE } from "./Chunk";
 import { randInt } from "three/src/math/MathUtils.js";
 
@@ -28,21 +29,21 @@ function createScene() {
   camera.lookAt(0, CHUNK_SIZE / 2, 0);
   scene.add(camera);
 
-  // Directional light (sun)
+  // Directional light (sun) - will be controlled by LightingSystem
   const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
   sunLight.position.set(50, 100, 50);
   sunLight.castShadow = true;
   scene.add(sunLight);
 
-  // Ambient light
-  const ambient = new THREE.AmbientLight(0x404040, 0.5);
+  // Ambient light - reduced for more dramatic lighting
+  const ambient = new THREE.AmbientLight(0x404040, 0.3);
   scene.add(ambient);
 
-  // Hemisphere light for better outdoor lighting
-  const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x545454, 0.5);
+  // Hemisphere light for better outdoor lighting - reduced
+  const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x545454, 0.3);
   scene.add(hemiLight);
 
-  return { scene, camera };
+  return { scene, camera, sunLight, ambient };
 }
 
 function setupControls(camera: THREE.Camera) {
@@ -189,15 +190,26 @@ function createUI(chunkManager: ChunkManager) {
       z: Math.floor(pos.z / CHUNK_SIZE),
     };
 
+    const lightingSystem = chunkManager.getLightingSystem();
+    const timeOfDay = lightingSystem.getTimeOfDay();
+    const timeString = getTimeString(timeOfDay);
+
     infoDiv.innerHTML = `
-      <strong>Minecraft World Demo</strong><br>
+      <strong>Minecraft World - Dynamic Lighting</strong><br>
       Click to lock mouse<br>
-      WASD: Move | Space/Shift: Up/Down<br><br>
+      WASD: Move | Space/Shift: Up/Down | T: Toggle time<br><br>
       Position: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}<br>
       Chunk: ${chunkPos.x}, ${chunkPos.y}, ${chunkPos.z}<br>
       Loaded Chunks: ${chunkManager.getLoadedChunkCount()}<br>
+      Time: ${timeString} (${timeOfDay})<br>
       Seed: ${chunkManager.getWorldGenerator().getSeed()}
     `;
+  }
+
+  function getTimeString(time: number): string {
+    const hour = Math.floor((time / 1000) % 24);
+    const minute = Math.floor(((time % 1000) / 1000) * 60);
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
   }
 
   return { update };
@@ -206,7 +218,16 @@ function createUI(chunkManager: ChunkManager) {
 async function main(): Promise<void> {
   const seed = randInt(0, 1000000);
   const renderer = createRenderer();
-  const { scene, camera } = createScene();
+  const { scene, camera, sunLight, ambient } = createScene();
+
+  // Initialize lighting system
+  const lightingSystem = new LightingSystem({
+    enableSunlight: true,
+    enableDynamicShadows: true,
+    sunIntensity: 15,
+    timeOfDay: 6000, // Start at noon
+  });
+  lightingSystem.setSunLight(sunLight);
 
   // Initialize world generator with a seed
   const worldGenerator = new WorldGenerator({
@@ -216,8 +237,8 @@ async function main(): Promise<void> {
     terrainHeight: 11,
   });
 
-  // Initialize chunk manager
-  const chunkManager = new ChunkManager(scene, worldGenerator, {
+  // Initialize chunk manager with lighting system
+  const chunkManager = new ChunkManager(scene, worldGenerator, lightingSystem, {
     renderDistance: 3,
     unloadDistance: 4,
   });
@@ -230,6 +251,18 @@ async function main(): Promise<void> {
 
   // Create UI
   const ui = createUI(chunkManager);
+
+  // Time control
+  let autoAdvanceTime = true;
+  let lastLightingUpdate = 0;
+  const LIGHTING_UPDATE_INTERVAL = 2000; // Update lighting every 2 seconds
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key.toLowerCase() === "t") {
+      autoAdvanceTime = !autoAdvanceTime;
+      console.log(`Time progression: ${autoAdvanceTime ? 'ON' : 'OFF'}`);
+    }
+  });
 
   // Resize handler
   function onResize() {
@@ -254,11 +287,26 @@ async function main(): Promise<void> {
     // Update controls
     controls.update(deltaTime);
 
+    // Update time of day (20 ticks per second in real-time)
+    if (autoAdvanceTime) {
+      lightingSystem.advanceTime(deltaTime * 20);
+    }
+
+    // Update lighting periodically for performance
+    if (currentTime - lastLightingUpdate > LIGHTING_UPDATE_INTERVAL) {
+      chunkManager.recalculateAllLighting();
+      lastLightingUpdate = currentTime;
+    }
+
     // Update chunks based on camera position
     chunkManager.updateChunks(camera.position);
 
     // Update UI
     ui.update(camera);
+
+    // Update ambient light based on time of day
+    const ambientLevel = lightingSystem.getAmbientLightLevel();
+    ambient.intensity = ambientLevel / 20;
 
     // Render scene
     renderer.render(scene, camera);
@@ -267,9 +315,10 @@ async function main(): Promise<void> {
 
   animate();
 
-  console.log("Minecraft world initialized!");
+  console.log("Minecraft world with dynamic lighting initialized!");
   console.log(`World seed: ${worldGenerator.getSeed()}`);
   console.log("Controls: WASD to move, Space/Shift for up/down, Mouse to look around");
+  console.log("Press T to toggle time progression");
 }
 
 main();
