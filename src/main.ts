@@ -15,7 +15,7 @@ function createRenderer(): THREE.WebGLRenderer {
 function createScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x87ceeb); // Sky blue
-  scene.fog = new THREE.Fog(0x87ceeb, 50, 200);
+  scene.fog = new THREE.Fog(0x87ceeb, 50, 120);
 
   const camera = new THREE.PerspectiveCamera(
     75,
@@ -212,14 +212,14 @@ async function main(): Promise<void> {
   const worldGenerator = new WorldGenerator({
     seed,
     seaLevel: 5,
-    terrainScale: 0.05,
-    terrainHeight: 11,
+    terrainScale: 0.02,
+    terrainHeight: 20,
   });
 
   // Initialize chunk manager
   const chunkManager = new ChunkManager(scene, worldGenerator, {
-    renderDistance: 3,
-    unloadDistance: 4,
+    renderDistance: 8,
+    unloadDistance: 10,
   });
 
   // Load initial chunks around the player
