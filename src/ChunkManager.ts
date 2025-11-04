@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { Chunk, ChunkPosition, CHUNK_SIZE } from "./Chunk";
-import { WorldGenerator } from "./WorldGenerator";
+import { WorldGenerator, WorldGenerationConfig } from "./WorldGenerator";
+import { WorkerPool } from "./WorkerPool";
 
 /**
  * Configuration for chunk management
@@ -25,7 +26,8 @@ export class ChunkManager {
   private chunks: Map<string, Chunk> = new Map();
   private loadingChunks: Set<string> = new Set();
   private scene: THREE.Scene;
-  private worldGenerator: WorldGenerator;
+  private worldGenerator: WorldGenerator; // Keep for getSeed() and other queries
+  private workerPool: WorkerPool;
   private config: ChunkManagerConfig;
   private lastPlayerChunkPosition: ChunkPosition | null = null;
 
@@ -37,6 +39,14 @@ export class ChunkManager {
     this.scene = scene;
     this.worldGenerator = worldGenerator;
     this.config = { ...DEFAULT_CHUNK_MANAGER_CONFIG, ...config };
+    
+    // Initialize worker pool for parallel chunk generation
+    this.workerPool = new WorkerPool();
+    
+    // Sync worker config with world generator
+    this.updateWorkerConfig({
+      seed: worldGenerator.getSeed(),
+    });
   }
 
   /**
@@ -102,17 +112,20 @@ export class ChunkManager {
   }
 
   /**
-   * Load a single chunk asynchronously
+   * Load a single chunk asynchronously using worker pool
    */
   private async loadChunk(position: ChunkPosition): Promise<void> {
     const key = Chunk.getKey(position);
     this.loadingChunks.add(key);
 
     try {
-      // Generate chunk data asynchronously
-      const chunk = await this.worldGenerator.generateChunk(position);
+      // Generate chunk data in worker (off main thread)
+      const result = await this.workerPool.generateChunk(position);
 
-      // Generate mesh for the chunk
+      // Create chunk from worker-generated data
+      const chunk = new Chunk(result.position, result.blockData);
+
+      // Generate mesh for the chunk (on main thread - needs THREE.js)
       const mesh = chunk.generateMesh();
       this.scene.add(mesh);
 
@@ -220,9 +233,31 @@ export class ChunkManager {
   }
 
   /**
+   * Update worker configuration
+   */
+  private updateWorkerConfig(config: Partial<WorldGenerationConfig>): void {
+    this.workerPool.updateConfig(config);
+  }
+
+  /**
    * Get world generator (for external access to seed, etc.)
    */
   getWorldGenerator(): WorldGenerator {
     return this.worldGenerator;
+  }
+
+  /**
+   * Dispose of chunk manager resources
+   */
+  dispose(): void {
+    this.clearAll();
+    this.workerPool.dispose();
+  }
+
+  /**
+   * Get number of pending chunk generation requests
+   */
+  getPendingChunkCount(): number {
+    return this.workerPool.getPendingRequestCount();
   }
 }

@@ -196,6 +196,7 @@ function createUI(chunkManager: ChunkManager) {
       Position: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}<br>
       Chunk: ${chunkPos.x}, ${chunkPos.y}, ${chunkPos.z}<br>
       Loaded Chunks: ${chunkManager.getLoadedChunkCount()}<br>
+      Generating: ${chunkManager.getPendingChunkCount()}<br>
       Seed: ${chunkManager.getWorldGenerator().getSeed()}
     `;
   }

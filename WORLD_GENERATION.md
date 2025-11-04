@@ -41,11 +41,12 @@ The world generation system is built with the following components:
 
 ### 5. **Chunk Manager** (`src/ChunkManager.ts`)
 - Manages loading and unloading of chunks
-- **Async chunk generation**: Chunks generate without blocking the main thread
+- **Web Worker-based generation**: Chunks generate in parallel worker threads (see WORKER_IMPLEMENTATION.md)
 - Automatically loads chunks within render distance of player
 - Automatically unloads chunks beyond unload distance
 - Tracks loading state to prevent duplicate requests
 - Provides methods to query loaded chunks
+- Uses WorkerPool for parallel, non-blocking generation
 
 ### 6. **Main Application** (`src/main.ts`)
 - Integrates all systems
@@ -117,12 +118,16 @@ const worldGenerator = new WorldGenerator({
 
 ## Performance Optimizations
 
-1. **Greedy Meshing**: Only visible block faces are rendered
-2. **Face Culling**: Faces between solid blocks are not generated
-3. **Typed Arrays**: Efficient memory usage with `Uint8Array`
-4. **Async Generation**: Non-blocking chunk creation
-5. **Automatic Unloading**: Distant chunks removed from memory
-6. **Flat Shading**: Reduces vertex count for blocky aesthetic
+1. **Web Workers**: World generation runs in parallel threads (off main thread)
+2. **Greedy Meshing**: Only visible block faces are rendered
+3. **Face Culling**: Faces between solid blocks are not generated
+4. **Typed Arrays**: Efficient memory usage with `Uint8Array`
+5. **Parallel Generation**: Multiple chunks generate simultaneously
+6. **Automatic Unloading**: Distant chunks removed from memory
+7. **Flat Shading**: Reduces vertex count for blocky aesthetic
+8. **Transferable Objects**: Zero-copy data transfer between threads
+
+See [WORKER_IMPLEMENTATION.md](./WORKER_IMPLEMENTATION.md) for details on the worker architecture.
 
 ## Future Enhancements
 

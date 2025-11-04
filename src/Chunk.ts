@@ -23,10 +23,14 @@ export class Chunk {
   private blocks: Uint8Array; // Stores block types as 8-bit integers
   private mesh: THREE.Mesh | null = null;
 
-  constructor(position: ChunkPosition) {
+  constructor(position: ChunkPosition, blockData?: Uint8Array) {
     this.position = position;
     // Initialize block array (flattened 3D array)
-    this.blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+    if (blockData) {
+      this.blocks = blockData;
+    } else {
+      this.blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+    }
   }
 
   /**

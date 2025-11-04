@@ -1,17 +1,23 @@
-# Minecraft Three.js
+# Minecraft
 
-A Minecraft-inspired 3D web application built with Three.js, TypeScript, and Bun. This project demonstrates modern web-based 3D graphics rendering with a fast development workflow powered by Bun's bundler and runtime.
+A high-performance Minecraft-style voxel world built with Three.js and TypeScript, featuring **web worker-based parallel world generation** for smooth, responsive gameplay.
 
 ## 🎮 Project Description
 
-This project is a web-based 3D application that serves as a foundation for creating Minecraft-style games or visualizations using Three.js. It features a modern TypeScript setup with Bun for ultra-fast builds and hot-reloading during development.
+This is a fully-featured Minecraft-inspired web application that demonstrates advanced 3D graphics techniques and modern web performance optimization. Built with Three.js, TypeScript, and Bun, it showcases real-time procedural world generation using web workers for parallel processing.
 
-The current implementation includes:
-- 3D scene rendering with WebGL
-- Basic lighting setup (directional and ambient)
-- Animated 3D cube demo
-- Responsive canvas that adapts to window resizing
-- Modern development workflow with hot module reloading
+### ✨ Key Features
+
+- **🚀 Web Worker-Based Generation**: Parallel chunk generation across multiple CPU cores
+- **🌍 Procedural Terrain**: Seed-based world generation with multi-octave noise
+- **📦 Chunk System**: Dynamic loading/unloading of 16×16×16 block chunks
+- **🎮 First-Person Controls**: WASD movement with mouse look
+- **⚡ High Performance**: 60 FPS maintained during world generation
+- **🎨 Multiple Block Types**: Grass, dirt, stone, sand, water, bedrock
+- **💧 Water Physics**: Sea level and underwater terrain
+- **🔧 Configurable**: Adjustable seeds, terrain scale, and render distance
+
+See [WORKER_IMPLEMENTATION.md](./WORKER_IMPLEMENTATION.md) for details on the worker architecture.
 
 ## 📋 Requirements
 
@@ -99,14 +105,23 @@ python -m http.server 8000 --directory .
 ```
 minecraft-threejs/
 ├── src/
-│   └── main.ts          # Main application entry point with Three.js setup
-├── tools/
-│   └── dev.ts           # Development server with hot-reloading
-├── dist/                # Build output directory (generated)
-├── index.html           # HTML entry point
-├── package.json         # Project configuration and dependencies
-├── tsconfig.json        # TypeScript configuration
-└── README.md           # This file
+│   ├── main.ts              # Main application entry point
+│   ├── ChunkManager.ts      # Chunk loading/unloading system
+│   ├── WorldGenerator.ts    # Procedural terrain generation
+│   ├── worldgen.worker.ts   # Web Worker for parallel generation
+│   ├── WorkerPool.ts        # Worker pool management
+│   ├── Chunk.ts             # Chunk data structure and meshing
+│   ├── SeededRandom.ts      # Deterministic random number generator
+│   ├── blocks.ts            # Block type definitions
+│   ├── worker-types.ts      # TypeScript types for worker communication
+│   └── index.html           # HTML entry point
+├── dev.ts                   # Development server
+├── dist/                    # Build output directory (generated)
+├── package.json             # Project configuration and dependencies
+├── tsconfig.json            # TypeScript configuration
+├── WORLD_GENERATION.md      # World generation system documentation
+├── WORKER_IMPLEMENTATION.md # Web worker architecture documentation
+└── README.md               # This file
 ```
 
 ### Key Files
@@ -214,13 +229,16 @@ This project does not currently specify a license. Please contact the repository
 ## 🎨 Future Enhancements
 
 Potential features to implement:
-- Minecraft-style voxel terrain generation
-- Player controls and camera movement
+- ✅ ~~Minecraft-style voxel terrain generation~~ (Completed)
+- ✅ ~~Player controls and camera movement~~ (Completed)
+- ✅ ~~Web Worker parallel generation~~ (Completed)
 - Block placement and destruction
 - Texture loading and materials
 - Multiplayer support
-- World persistence
+- World persistence (IndexedDB)
 - More complex lighting and shadows
+- Biomes and structures
+- Caves and underground generation
 
 ---
 
