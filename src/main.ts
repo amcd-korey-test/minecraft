@@ -3,6 +3,7 @@ import { ChunkManager } from "./ChunkManager";
 import { WorldGenerator } from "./WorldGenerator";
 import { CHUNK_SIZE } from "./Chunk";
 import { randInt } from "three/src/math/MathUtils.js";
+import { Player } from "./Player";
 
 function createRenderer(): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -45,14 +46,13 @@ function createScene() {
   return { scene, camera };
 }
 
-function setupControls(camera: THREE.Camera) {
+function setupControls(camera: THREE.Camera, player: Player) {
   const keys = {
     w: false,
     a: false,
     s: false,
     d: false,
     space: false,
-    shift: false,
   };
 
   // Rotation state
@@ -102,9 +102,6 @@ function setupControls(camera: THREE.Camera) {
       case " ":
         keys.space = true;
         break;
-      case "shift":
-        keys.shift = true;
-        break;
     }
   });
 
@@ -125,43 +122,19 @@ function setupControls(camera: THREE.Camera) {
       case " ":
         keys.space = false;
         break;
-      case "shift":
-        keys.shift = false;
-        break;
     }
   });
 
-  // Update camera position and rotation
+  // Update camera rotation and player physics
   function update(deltaTime: number) {
-    // Apply rotation
+    // Apply rotation to camera
     camera.rotation.order = "YXZ";
     camera.rotation.z = 0;
     camera.rotation.y = yaw;
     camera.rotation.x = pitch;
 
-    // Calculate movement direction
-    const moveSpeed = 10 * deltaTime;
-    const direction = new THREE.Vector3();
-
-    if (keys.w) direction.z -= 1;
-    if (keys.s) direction.z += 1;
-    if (keys.a) direction.x -= 1;
-    if (keys.d) direction.x += 1;
-
-    // Normalize to prevent faster diagonal movement
-    if (direction.length() > 0) {
-      direction.normalize();
-    }
-
-    // Apply rotation to direction
-    direction.applyEuler(new THREE.Euler(0, yaw, 0, "YXZ"));
-
-    // Vertical movement
-    if (keys.space) direction.y += 1;
-    if (keys.shift) direction.y -= 1;
-
-    // Move camera
-    camera.position.add(direction.multiplyScalar(moveSpeed));
+    // Update player with physics
+    player.update(deltaTime, keys);
   }
 
   return { update };
@@ -181,7 +154,7 @@ function createUI(chunkManager: ChunkManager) {
   infoDiv.style.pointerEvents = "none";
   document.body.appendChild(infoDiv);
 
-  function update(camera: THREE.Camera) {
+  function update(camera: THREE.Camera, player: Player) {
     const pos = camera.position;
     const chunkPos = {
       x: Math.floor(pos.x / CHUNK_SIZE),
@@ -192,10 +165,11 @@ function createUI(chunkManager: ChunkManager) {
     infoDiv.innerHTML = `
       <strong>Minecraft World Demo</strong><br>
       Click to lock mouse<br>
-      WASD: Move | Space/Shift: Up/Down<br><br>
+      WASD: Move | Space: Jump | Mouse: Look<br><br>
       Position: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}<br>
       Chunk: ${chunkPos.x}, ${chunkPos.y}, ${chunkPos.z}<br>
       Loaded Chunks: ${chunkManager.getLoadedChunkCount()}<br>
+      On Ground: ${player.isOnGround() ? "Yes" : "No"}<br>
       Seed: ${chunkManager.getWorldGenerator().getSeed()}
     `;
   }
@@ -222,11 +196,22 @@ async function main(): Promise<void> {
     unloadDistance: 10,
   });
 
-  // Load initial chunks around the player
-  await chunkManager.updateChunks(camera.position);
+  console.log("Finding spawn position...");
+  // Load initial chunks around origin first
+  await chunkManager.updateChunks(new THREE.Vector3(0, CHUNK_SIZE, 0));
 
-  // Setup controls
-  const controls = setupControls(camera);
+  // Find a valid spawn position on land
+  const spawnPosition = await Player.findSpawnPosition(chunkManager);
+  console.log(`Spawn position found at: ${spawnPosition.x.toFixed(1)}, ${spawnPosition.y.toFixed(1)}, ${spawnPosition.z.toFixed(1)}`);
+
+  // Create player at spawn position
+  const player = new Player(camera, chunkManager, spawnPosition);
+
+  // Load chunks around player spawn position
+  await chunkManager.updateChunks(player.getPosition());
+
+  // Setup controls with player
+  const controls = setupControls(camera, player);
 
   // Create UI
   const ui = createUI(chunkManager);
@@ -251,14 +236,14 @@ async function main(): Promise<void> {
     const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
     lastTime = currentTime;
 
-    // Update controls
+    // Update controls (which updates player physics)
     controls.update(deltaTime);
 
-    // Update chunks based on camera position
-    chunkManager.updateChunks(camera.position);
+    // Update chunks based on player position
+    chunkManager.updateChunks(player.getPosition());
 
     // Update UI
-    ui.update(camera);
+    ui.update(camera, player);
 
     // Render scene
     renderer.render(scene, camera);
@@ -269,7 +254,7 @@ async function main(): Promise<void> {
 
   console.log("Minecraft world initialized!");
   console.log(`World seed: ${worldGenerator.getSeed()}`);
-  console.log("Controls: WASD to move, Space/Shift for up/down, Mouse to look around");
+  console.log("Controls: WASD to move, Space to jump, Mouse to look around");
 }
 
 main();
