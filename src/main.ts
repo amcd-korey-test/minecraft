@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { ChunkManager } from "./ChunkManager";
 import { WorldGenerator } from "./WorldGenerator";
+import { PlayerController } from "./PlayerController";
 import { CHUNK_SIZE } from "./Chunk";
 import { randInt } from "three/src/math/MathUtils.js";
 
@@ -23,9 +24,7 @@ function createScene() {
     0.1,
     1000
   );
-  // Position camera to view the world
-  camera.position.set(CHUNK_SIZE * 1.5, CHUNK_SIZE * 1.5, CHUNK_SIZE * 2);
-  camera.lookAt(0, CHUNK_SIZE / 2, 0);
+  // Camera position will be set by PlayerController after spawn
   scene.add(camera);
 
   // Directional light (sun)
@@ -45,129 +44,8 @@ function createScene() {
   return { scene, camera };
 }
 
-function setupControls(camera: THREE.Camera) {
-  const keys = {
-    w: false,
-    a: false,
-    s: false,
-    d: false,
-    space: false,
-    shift: false,
-  };
 
-  // Rotation state
-  let yaw = 0;
-  let pitch = 0;
-  let isPointerLocked = false;
-
-  // Request pointer lock on click
-  document.addEventListener("click", () => {
-    if (!isPointerLocked) {
-      document.body.requestPointerLock();
-    }
-  });
-
-  // Track pointer lock state
-  document.addEventListener("pointerlockchange", () => {
-    isPointerLocked = document.pointerLockElement === document.body;
-  });
-
-  // Mouse movement for camera rotation
-  document.addEventListener("mousemove", (event) => {
-    if (!isPointerLocked) return;
-
-    const sensitivity = 0.002;
-    yaw -= event.movementX * sensitivity;
-    pitch -= event.movementY * sensitivity;
-
-    // Clamp pitch to avoid flipping
-    pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitch));
-  });
-
-  // Keyboard controls
-  window.addEventListener("keydown", (e) => {
-    switch (e.key.toLowerCase()) {
-      case "w":
-        keys.w = true;
-        break;
-      case "a":
-        keys.a = true;
-        break;
-      case "s":
-        keys.s = true;
-        break;
-      case "d":
-        keys.d = true;
-        break;
-      case " ":
-        keys.space = true;
-        break;
-      case "shift":
-        keys.shift = true;
-        break;
-    }
-  });
-
-  window.addEventListener("keyup", (e) => {
-    switch (e.key.toLowerCase()) {
-      case "w":
-        keys.w = false;
-        break;
-      case "a":
-        keys.a = false;
-        break;
-      case "s":
-        keys.s = false;
-        break;
-      case "d":
-        keys.d = false;
-        break;
-      case " ":
-        keys.space = false;
-        break;
-      case "shift":
-        keys.shift = false;
-        break;
-    }
-  });
-
-  // Update camera position and rotation
-  function update(deltaTime: number) {
-    // Apply rotation
-    camera.rotation.order = "YXZ";
-    camera.rotation.z = 0;
-    camera.rotation.y = yaw;
-    camera.rotation.x = pitch;
-
-    // Calculate movement direction
-    const moveSpeed = 10 * deltaTime;
-    const direction = new THREE.Vector3();
-
-    if (keys.w) direction.z -= 1;
-    if (keys.s) direction.z += 1;
-    if (keys.a) direction.x -= 1;
-    if (keys.d) direction.x += 1;
-
-    // Normalize to prevent faster diagonal movement
-    if (direction.length() > 0) {
-      direction.normalize();
-    }
-
-    // Apply rotation to direction
-    direction.applyEuler(new THREE.Euler(0, yaw, 0, "YXZ"));
-
-    // Vertical movement
-    if (keys.space) direction.y += 1;
-    if (keys.shift) direction.y -= 1;
-
-    // Move camera
-    camera.position.add(direction.multiplyScalar(moveSpeed));
-  }
-
-  return { update };
-}
-
-function createUI(chunkManager: ChunkManager) {
+function createUI(chunkManager: ChunkManager, playerController: PlayerController) {
   const infoDiv = document.createElement("div");
   infoDiv.style.position = "absolute";
   infoDiv.style.top = "10px";
@@ -188,12 +66,16 @@ function createUI(chunkManager: ChunkManager) {
       y: Math.floor(pos.y / CHUNK_SIZE),
       z: Math.floor(pos.z / CHUNK_SIZE),
     };
+    const velocity = playerController.getVelocity();
+    const grounded = playerController.isPlayerGrounded();
 
     infoDiv.innerHTML = `
       <strong>Minecraft World Demo</strong><br>
       Click to lock mouse<br>
-      WASD: Move | Space/Shift: Up/Down<br><br>
+      WASD: Move | Space: Jump | Shift: Sprint<br><br>
       Position: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}<br>
+      Velocity: ${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)}, ${velocity.z.toFixed(2)}<br>
+      Grounded: ${grounded ? "Yes" : "No"}<br>
       Chunk: ${chunkPos.x}, ${chunkPos.y}, ${chunkPos.z}<br>
       Loaded Chunks: ${chunkManager.getLoadedChunkCount()}<br>
       Seed: ${chunkManager.getWorldGenerator().getSeed()}
@@ -222,14 +104,21 @@ async function main(): Promise<void> {
     unloadDistance: 10,
   });
 
-  // Load initial chunks around the player
+  // Find spawn location on land
+  const spawnLocation = worldGenerator.findSpawnLocation();
+  console.log(`Spawning player at: ${spawnLocation.x.toFixed(1)}, ${spawnLocation.y.toFixed(1)}, ${spawnLocation.z.toFixed(1)}`);
+
+  // Set camera to spawn position
+  camera.position.set(spawnLocation.x, spawnLocation.y, spawnLocation.z);
+
+  // Load initial chunks around spawn location
   await chunkManager.updateChunks(camera.position);
 
-  // Setup controls
-  const controls = setupControls(camera);
+  // Setup player controller
+  const playerController = new PlayerController(camera, chunkManager);
 
   // Create UI
-  const ui = createUI(chunkManager);
+  const ui = createUI(chunkManager, playerController);
 
   // Resize handler
   function onResize() {
@@ -251,8 +140,8 @@ async function main(): Promise<void> {
     const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
     lastTime = currentTime;
 
-    // Update controls
-    controls.update(deltaTime);
+    // Update player controller
+    playerController.update(deltaTime);
 
     // Update chunks based on camera position
     chunkManager.updateChunks(camera.position);
@@ -269,7 +158,7 @@ async function main(): Promise<void> {
 
   console.log("Minecraft world initialized!");
   console.log(`World seed: ${worldGenerator.getSeed()}`);
-  console.log("Controls: WASD to move, Space/Shift for up/down, Mouse to look around");
+  console.log("Controls: WASD to move, Space to jump, Shift to sprint, Mouse to look around");
 }
 
 main();

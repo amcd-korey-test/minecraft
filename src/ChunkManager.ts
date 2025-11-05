@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { Chunk, ChunkPosition, CHUNK_SIZE } from "./Chunk";
 import { WorldGenerator } from "./WorldGenerator";
+import { BlockType } from "./blocks";
 
 /**
  * Configuration for chunk management
@@ -224,5 +225,28 @@ export class ChunkManager {
    */
   getWorldGenerator(): WorldGenerator {
     return this.worldGenerator;
+  }
+
+  /**
+   * Get block type at world coordinates
+   * Returns null if chunk is not loaded
+   */
+  getBlockAt(worldX: number, worldY: number, worldZ: number): BlockType | null {
+    // Convert world coordinates to chunk position and local coordinates
+    const chunkX = Math.floor(worldX / CHUNK_SIZE);
+    const chunkY = Math.floor(worldY / CHUNK_SIZE);
+    const chunkZ = Math.floor(worldZ / CHUNK_SIZE);
+
+    const chunk = this.getChunk({ x: chunkX, y: chunkY, z: chunkZ });
+    if (!chunk) {
+      return null; // Chunk not loaded
+    }
+
+    // Get local coordinates within chunk
+    const localX = Math.floor(worldX) - chunkX * CHUNK_SIZE;
+    const localY = Math.floor(worldY) - chunkY * CHUNK_SIZE;
+    const localZ = Math.floor(worldZ) - chunkZ * CHUNK_SIZE;
+
+    return chunk.getBlock(localX, localY, localZ);
   }
 }

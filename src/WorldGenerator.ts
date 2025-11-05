@@ -188,4 +188,49 @@ export class WorldGenerator {
   getSeed(): number {
     return this.config.seed;
   }
+
+  /**
+   * Find a suitable spawn location on land (not in water, not underground)
+   * Returns { x, y, z } coordinates for player spawn
+   */
+  findSpawnLocation(): { x: number; y: number; z: number } {
+    // Search in a spiral pattern from origin to find suitable land
+    const maxSearchRadius = 100;
+    
+    for (let radius = 0; radius < maxSearchRadius; radius += 5) {
+      // Try multiple angles
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+        const x = Math.floor(radius * Math.cos(angle));
+        const z = Math.floor(radius * Math.sin(angle));
+        
+        // Get terrain height at this position
+        const terrainHeight = this.getTerrainHeight(x, z);
+        
+        // Check if above sea level (not in water)
+        if (terrainHeight > this.config.seaLevel) {
+          // Spawn player standing on the terrain
+          // +1.8 to place player's feet on the ground (player height)
+          return {
+            x: x + 0.5, // Center of block
+            y: terrainHeight + 1.8,
+            z: z + 0.5,
+          };
+        }
+      }
+    }
+    
+    // Fallback: spawn at a safe height above sea level
+    return {
+      x: 0.5,
+      y: this.config.seaLevel + 10,
+      z: 0.5,
+    };
+  }
+
+  /**
+   * Get terrain height at given X, Z coordinates (made public for spawn finding)
+   */
+  getTerrainHeightAt(x: number, z: number): number {
+    return this.getTerrainHeight(x, z);
+  }
 }
