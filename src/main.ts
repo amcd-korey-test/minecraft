@@ -4,6 +4,7 @@ import { WorldGenerator } from "./WorldGenerator";
 import { CHUNK_SIZE } from "./Chunk";
 import { randInt } from "three/src/math/MathUtils.js";
 import { Player } from "./Player";
+import { DayNightCycle } from "./DayNightCycle";
 
 function createRenderer(): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -15,7 +16,7 @@ function createRenderer(): THREE.WebGLRenderer {
 
 function createScene() {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb); // Sky blue
+  scene.background = new THREE.Color(0x87ceeb); // Sky blue (will be updated by day/night cycle)
   scene.fog = new THREE.Fog(0x87ceeb, 50, 120);
 
   const camera = new THREE.PerspectiveCamera(
@@ -29,21 +30,21 @@ function createScene() {
   camera.lookAt(0, CHUNK_SIZE / 2, 0);
   scene.add(camera);
 
-  // Directional light (sun)
+  // Directional light (sun) - position will be updated by day/night cycle
   const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
   sunLight.position.set(50, 100, 50);
   sunLight.castShadow = true;
   scene.add(sunLight);
 
-  // Ambient light
+  // Ambient light - intensity will be updated by day/night cycle
   const ambient = new THREE.AmbientLight(0x404040, 0.5);
   scene.add(ambient);
 
-  // Hemisphere light for better outdoor lighting
+  // Hemisphere light for better outdoor lighting - will be updated by day/night cycle
   const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x545454, 0.5);
   scene.add(hemiLight);
 
-  return { scene, camera };
+  return { scene, camera, sunLight, ambient, hemiLight };
 }
 
 function setupControls(camera: THREE.Camera, player: Player) {
@@ -140,7 +141,7 @@ function setupControls(camera: THREE.Camera, player: Player) {
   return { update };
 }
 
-function createUI(chunkManager: ChunkManager) {
+function createUI(chunkManager: ChunkManager, dayNightCycle: DayNightCycle) {
   const infoDiv = document.createElement("div");
   infoDiv.style.position = "absolute";
   infoDiv.style.top = "10px";
@@ -162,6 +163,10 @@ function createUI(chunkManager: ChunkManager) {
       z: Math.floor(pos.z / CHUNK_SIZE),
     };
 
+    const phase = dayNightCycle.getPhase();
+    const timeStr = dayNightCycle.getTimeString();
+    const phaseEmoji = phase === "day" ? "☀️" : phase === "night" ? "🌙" : phase === "sunrise" ? "🌅" : "🌆";
+
     infoDiv.innerHTML = `
       <strong>Minecraft World Demo</strong><br>
       Click to lock mouse<br>
@@ -170,7 +175,9 @@ function createUI(chunkManager: ChunkManager) {
       Chunk: ${chunkPos.x}, ${chunkPos.y}, ${chunkPos.z}<br>
       Loaded Chunks: ${chunkManager.getLoadedChunkCount()}<br>
       On Ground: ${player.isOnGround() ? "Yes" : "No"}<br>
-      Seed: ${chunkManager.getWorldGenerator().getSeed()}
+      Seed: ${chunkManager.getWorldGenerator().getSeed()}<br><br>
+      Time: ${timeStr} ${phaseEmoji}<br>
+      Phase: ${phase.charAt(0).toUpperCase() + phase.slice(1)}
     `;
   }
 
@@ -180,7 +187,15 @@ function createUI(chunkManager: ChunkManager) {
 async function main(): Promise<void> {
   const seed = randInt(0, 1000000);
   const renderer = createRenderer();
-  const { scene, camera } = createScene();
+  const { scene, camera, sunLight, ambient, hemiLight } = createScene();
+
+  // Initialize day/night cycle
+  const dayNightCycle = new DayNightCycle(scene, sunLight, ambient, hemiLight, {
+    dayLength: 600, // 10 minutes
+    dayRatio: 2 / 3,
+    nightRatio: 1 / 3,
+    startTime: 0.25, // Start at mid-morning
+  });
 
   // Initialize world generator with a seed
   const worldGenerator = new WorldGenerator({
@@ -214,7 +229,7 @@ async function main(): Promise<void> {
   const controls = setupControls(camera, player);
 
   // Create UI
-  const ui = createUI(chunkManager);
+  const ui = createUI(chunkManager, dayNightCycle);
 
   // Resize handler
   function onResize() {
@@ -236,7 +251,10 @@ async function main(): Promise<void> {
     const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
     lastTime = currentTime;
 
-    // Update controls (which updates player physics)
+    // Update day/night cycle
+    dayNightCycle.update(deltaTime);
+
+    // Update controls
     controls.update(deltaTime);
 
     // Update chunks based on player position
