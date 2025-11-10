@@ -107,8 +107,8 @@ export class DayNightCycle {
     const geometry = new THREE.SphereGeometry(size, 32, 32);
     const material = new THREE.MeshBasicMaterial({
       color: color,
-      emissive: emissive ? color : new THREE.Color(0x000000),
-      emissiveIntensity: emissive ? 1 : 0,
+      // emissiveColor: emissive ? color : new THREE.Color(0x000000),
+      // emissiveIntensity: emissive ? 1 : 0,
     });
     return new THREE.Mesh(geometry, material);
   }

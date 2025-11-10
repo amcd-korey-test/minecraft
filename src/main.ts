@@ -191,7 +191,7 @@ async function main(): Promise<void> {
 
   // Initialize day/night cycle
   const dayNightCycle = new DayNightCycle(scene, sunLight, ambient, hemiLight, {
-    dayLength: 600, // 10 minutes
+    dayLength: 300, // 5 minutes
     dayRatio: 2 / 3,
     nightRatio: 1 / 3,
     startTime: 0.25, // Start at mid-morning
