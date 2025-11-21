@@ -54,8 +54,6 @@ export class Player {
    * Update player physics and movement
    */
   update(deltaTime: number, keys: { w: boolean; a: boolean; s: boolean; d: boolean; space: boolean }) {
-    this.onGround = false;
-
     // Apply gravity
     this.velocity.y -= this.gravity * deltaTime;
     
@@ -122,6 +120,7 @@ export class Player {
     }
     
     // Apply velocity with collision detection
+    this.onGround = false;
     this.moveWithCollision(deltaTime);
     
     // Update camera position
