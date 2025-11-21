@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { ChunkManager } from "./ChunkManager";
-import { WorldGenerator } from "./WorldGenerator";
+import { WorldGeneratorProxy } from "./WorldGeneratorProxy";
 import { CHUNK_SIZE } from "./Chunk";
 import { randInt } from "three/src/math/MathUtils.js";
 import { Player } from "./Player";
@@ -198,7 +198,7 @@ async function main(): Promise<void> {
   });
 
   // Initialize world generator with a seed
-  const worldGenerator = new WorldGenerator({
+  const worldGenerator = new WorldGeneratorProxy({
     seed,
     seaLevel: 5,
     terrainScale: 0.02,

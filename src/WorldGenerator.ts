@@ -1,5 +1,6 @@
 import { BlockType } from "./blocks";
 import { Chunk, CHUNK_SIZE, ChunkPosition } from "./Chunk";
+import { createNoise2D } from "simplex-noise";
 import { SeededRandom } from "./SeededRandom";
 
 /**
@@ -27,23 +28,22 @@ export const DEFAULT_WORLD_CONFIG: WorldGenerationConfig = {
  */
 export class WorldGenerator {
   private config: WorldGenerationConfig;
+  private noise2D: (x: number, y: number) => number;
+  private random: SeededRandom;
 
   constructor(config: Partial<WorldGenerationConfig> = {}) {
     this.config = { ...DEFAULT_WORLD_CONFIG, ...config };
+    this.random = new SeededRandom(this.config.seed);
+    this.noise2D = createNoise2D(this.random.next.bind(this.random));
   }
 
   /**
    * Generate blocks for a chunk at the given position
    */
-  async generateChunk(position: ChunkPosition): Promise<Chunk> {
-    return new Promise((resolve) => {
-      // Use setTimeout to make generation async (non-blocking)
-      setTimeout(() => {
-        const chunk = new Chunk(position);
-        this.fillChunkWithTerrain(chunk);
-        resolve(chunk);
-      }, 0);
-    });
+  generateChunk(position: ChunkPosition): Chunk {
+    const chunk = new Chunk(position);
+    this.fillChunkWithTerrain(chunk);
+    return chunk;
   }
 
   /**
@@ -121,59 +121,6 @@ export class WorldGenerator {
     return Math.floor(height);
   }
 
-  /**
-   * Simple 2D noise function using seeded random
-   * This is a simplified noise - in production, you'd use Perlin or Simplex noise
-   */
-  private noise2D(x: number, y: number): number {
-    // Get integer coordinates
-    const x0 = Math.floor(x);
-    const y0 = Math.floor(y);
-
-    // Get fractional parts
-    const fx = x - x0;
-    const fy = y - y0;
-
-    // Get random values at corners
-    const v00 = this.getRandomValue(x0, y0);
-    const v10 = this.getRandomValue(x0 + 1, y0);
-    const v01 = this.getRandomValue(x0, y0 + 1);
-    const v11 = this.getRandomValue(x0 + 1, y0 + 1);
-
-    // Smooth interpolation (cosine interpolation)
-    const sx = this.smoothstep(fx);
-    const sy = this.smoothstep(fy);
-
-    // Bilinear interpolation
-    const v0 = this.lerp(v00, v10, sx);
-    const v1 = this.lerp(v01, v11, sx);
-    const value = this.lerp(v0, v1, sy);
-
-    // Return value in range -1 to 1
-    return value * 2 - 1;
-  }
-
-  /**
-   * Get a seeded random value for given coordinates
-   */
-  private getRandomValue(x: number, y: number): number {
-    const random = SeededRandom.fromCoordinates(this.config.seed, x, y, 0);
-    return random.next();
-  }
-
-  /**
-   * Smooth step function for interpolation
-   */
-  private smoothstep(t: number): number {
-    return t * t * (3 - 2 * t);
-  }
-
-  /**
-   * Linear interpolation
-   */
-  private lerp(a: number, b: number, t: number): number {
-    return a + (b - a) * t;
-  }
 
   /**
    * Update the world seed (will affect future chunk generation)

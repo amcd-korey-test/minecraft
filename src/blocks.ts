@@ -24,7 +24,7 @@ export interface BlockProperties {
 /**
  * Configuration for block types
  */
-export const BLOCK_CONFIG: Record<BlockType, BlockProperties> = {
+export const BLOCK_CONFIG = {
   [BlockType.AIR]: {
     type: BlockType.AIR,
     name: "Air",
@@ -67,4 +67,4 @@ export const BLOCK_CONFIG: Record<BlockType, BlockProperties> = {
     color: 0x1e90ff,
     transparent: true,
   },
-};
+} as const satisfies Record<BlockType, BlockProperties>;
