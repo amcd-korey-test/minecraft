@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { Chunk, ChunkPosition, CHUNK_SIZE } from "./Chunk";
-import { WorldGenerator } from "./WorldGenerator";
+import { WorldGeneratorProxy } from "./WorldGeneratorProxy";
 
 /**
  * Configuration for chunk management
@@ -25,13 +25,13 @@ export class ChunkManager {
   private chunks: Map<string, Chunk> = new Map();
   private loadingChunks: Set<string> = new Set();
   private scene: THREE.Scene;
-  private worldGenerator: WorldGenerator;
+  private worldGenerator: WorldGeneratorProxy;
   private config: ChunkManagerConfig;
   private lastPlayerChunkPosition: ChunkPosition | null = null;
 
   constructor(
     scene: THREE.Scene,
-    worldGenerator: WorldGenerator,
+    worldGenerator: WorldGeneratorProxy,
     config: Partial<ChunkManagerConfig> = {}
   ) {
     this.scene = scene;
@@ -222,7 +222,7 @@ export class ChunkManager {
   /**
    * Get world generator (for external access to seed, etc.)
    */
-  getWorldGenerator(): WorldGenerator {
+  getWorldGenerator(): WorldGeneratorProxy {
     return this.worldGenerator;
   }
 }

@@ -8,6 +8,7 @@
     "build": "bun build ./src/index.html --outdir ./dist --target browser --minify"
   },
   "dependencies": {
+    "simplex-noise": "^4.0.3",
     "three": "0.170.0"
   },
   "devDependencies": {

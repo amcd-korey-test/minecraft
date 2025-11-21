@@ -12,6 +12,7 @@ export class Player {
   private velocity: THREE.Vector3;
   
   // Player bounding box (for collision detection)
+  private boundingBox: THREE.Box3;
   private readonly width = 0.6; // Player width
   private readonly height = 1.8; // Player height (eye level at ~1.6)
   private readonly eyeHeight = 1.6; // Camera height from feet
@@ -37,6 +38,12 @@ export class Player {
     this.position = spawnPosition.clone();
     this.velocity = new THREE.Vector3(0, 0, 0);
     
+    const halfWidth = this.width / 2;
+    this.boundingBox = new THREE.Box3(
+      new THREE.Vector3(-halfWidth, 0, -halfWidth),
+      new THREE.Vector3(halfWidth, this.height, halfWidth)
+    );
+
     // Set camera to player eye position
     this.updateCameraPosition();
   }
@@ -121,94 +128,68 @@ export class Player {
    * Move player with collision detection
    */
   private moveWithCollision(deltaTime: number) {
-    // Calculate intended movement
     const movement = this.velocity.clone().multiplyScalar(deltaTime);
     
-    // Move each axis separately for better collision resolution
-    // X axis
     this.position.x += movement.x;
-    if (this.checkCollision()) {
-      this.position.x -= movement.x;
-      this.velocity.x = 0;
-    }
+    this.checkCollisions("x");
     
-    // Y axis (vertical)
     this.position.y += movement.y;
-    if (this.checkCollision()) {
-      if (this.velocity.y < 0) {
-        // Hit ground
-        this.onGround = true;
-      }
-      this.position.y -= movement.y;
-      this.velocity.y = 0;
-    } else {
-      this.onGround = false;
-    }
+    this.checkCollisions("y");
     
-    // Z axis
     this.position.z += movement.z;
-    if (this.checkCollision()) {
-      this.position.z -= movement.z;
-      this.velocity.z = 0;
-    }
-    
-    // Check if on ground (for friction and jump)
-    const groundCheck = this.position.clone();
-    groundCheck.y -= 0.01;
-    if (!this.onGround) {
-      // Check if we're on ground by testing slightly below
-      const testPos = this.position.clone();
-      testPos.y -= 0.01;
-      this.onGround = this.isPositionSolid(testPos);
-    }
+    this.checkCollisions("z");
   }
   
-  /**
-   * Check if player's bounding box collides with any solid blocks
-   */
-  private checkCollision(): boolean {
-    // Check multiple points around the player's bounding box
-    const halfWidth = this.width / 2;
+  private checkCollisions(axis: "x" | "y" | "z") {
+    const playerBox = this.boundingBox.clone().translate(this.position);
     
-    // Check bottom, middle, and top of player
-    const checkHeights = [0.1, this.height / 2, this.height - 0.1];
+    const min = playerBox.min.clone().floor();
+    const max = playerBox.max.clone().ceil();
     
-    for (const heightOffset of checkHeights) {
-      const checkPositions = [
-        // Four corners at this height
-        new THREE.Vector3(halfWidth, heightOffset, halfWidth),
-        new THREE.Vector3(-halfWidth, heightOffset, halfWidth),
-        new THREE.Vector3(halfWidth, heightOffset, -halfWidth),
-        new THREE.Vector3(-halfWidth, heightOffset, -halfWidth),
-        // Center at this height
-        new THREE.Vector3(0, heightOffset, 0),
-      ];
-      
-      for (const offset of checkPositions) {
-        const checkPos = this.position.clone().add(offset);
-        if (this.isPositionSolid(checkPos)) {
-          return true;
+    for (let x = min.x; x < max.x; x++) {
+      for (let y = min.y; y < max.y; y++) {
+        for (let z = min.z; z < max.z; z++) {
+          const block = this.getBlockAt(x, y, z);
+          if (block !== BlockType.AIR && block !== BlockType.WATER) {
+            const blockBox = new THREE.Box3(
+              new THREE.Vector3(x, y, z),
+              new THREE.Vector3(x + 1, y + 1, z + 1)
+            );
+
+            if (playerBox.intersectsBox(blockBox)) {
+              const intersection = playerBox.clone().intersect(blockBox);
+
+              const depth = new THREE.Vector3();
+              intersection.getSize(depth);
+
+              if (axis === "x") {
+                if (this.velocity.x > 0) {
+                  this.position.x -= depth.x;
+                } else {
+                  this.position.x += depth.x;
+                }
+                this.velocity.x = 0;
+              } else if (axis === "y") {
+                if (this.velocity.y > 0) {
+                  this.position.y -= depth.y;
+                } else {
+                  this.position.y += depth.y;
+                  this.onGround = true;
+                }
+                this.velocity.y = 0;
+              } else if (axis === "z") {
+                if (this.velocity.z > 0) {
+                  this.position.z -= depth.z;
+                } else {
+                  this.position.z += depth.z;
+                }
+                this.velocity.z = 0;
+              }
+            }
+          }
         }
       }
     }
-    
-    return false;
-  }
-  
-  /**
-   * Check if a world position contains a solid block
-   */
-  private isPositionSolid(worldPos: THREE.Vector3): boolean {
-    const blockPos = {
-      x: Math.floor(worldPos.x),
-      y: Math.floor(worldPos.y),
-      z: Math.floor(worldPos.z),
-    };
-    
-    const blockType = this.getBlockAt(blockPos.x, blockPos.y, blockPos.z);
-    
-    // Air and water are not solid
-    return blockType !== BlockType.AIR && blockType !== BlockType.WATER;
   }
   
   /**
