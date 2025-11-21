@@ -1,8 +1,4 @@
 import { WorldGenerator, WorldGenerationConfig } from "./WorldGenerator";
-import { Chunk } from "./Chunk";
-import { BlockType } from "./blocks";
-import { SeededRandom } from "./SeededRandom";
-import { createNoise2D } from "simplex-noise";
 
 let generator: WorldGenerator | null = null;
 
@@ -19,6 +15,6 @@ self.onmessage = (e: MessageEvent) => {
     }
     const { position } = payload;
     const chunk = generator.generateChunk(position);
-    self.postMessage({ type: "chunk_generated", payload: { chunkData: chunk.blocks, position: position } });
+    self.postMessage({ type: "chunk_generated", payload: { chunkData: chunk.getBlocks(), position } });
   }
 };

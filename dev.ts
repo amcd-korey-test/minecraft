@@ -13,7 +13,7 @@ await build({
   splitting: true,
 });
 
-serve({
+const server = serve({
   port: Number(process.env.PORT || 7777),
   async fetch(req) {
     const url = new URL(req.url);
@@ -23,12 +23,16 @@ serve({
       });
     }
 
-    const filePath = `${outdir}${url.pathname.replace("/src", "")}`;
+    const filePath = `${outdir}${url.pathname.replace("/src", "").replace(".ts", ".js")}`;
     const file = Bun.file(filePath);
     if (await file.exists()) {
-      return new Response(file);
+      return new Response(file, {
+        headers: { "Content-Type": "application/javascript; charset=utf-8" },
+      });
     }
 
     return new Response("Not found", { status: 404 });
   },
 });
+
+console.log(`Server running at ${server.url}`);

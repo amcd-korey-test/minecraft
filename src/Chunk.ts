@@ -29,6 +29,10 @@ export class Chunk {
     this.blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
   }
 
+  getBlocks() {
+    return this.blocks;
+  }
+
   /**
    * Get block type at local chunk coordinates (0 to CHUNK_SIZE-1)
    */
@@ -79,7 +83,7 @@ export class Chunk {
       const q = [0, 0, 0];
       q[d] = 1;
 
-      for (x[d] = -1; x[d] < CHUNK_SIZE; ) {
+      for (x[d] = -1; x[d] < CHUNK_SIZE;) {
         let n = 0;
         for (x[v] = 0; x[v] < CHUNK_SIZE; x[v]++) {
           for (x[u] = 0; x[u] < CHUNK_SIZE; x[u]++) {
@@ -102,8 +106,8 @@ export class Chunk {
         n = 0;
 
         for (let j = 0; j < CHUNK_SIZE; j++) {
-          for (let i = 0; i < CHUNK_SIZE; ) {
-            const blockType = visited[n];
+          for (let i = 0; i < CHUNK_SIZE;) {
+            const blockType = visited[n] as BlockType;
             if (blockType) {
               let w = 1;
               while (i + w < CHUNK_SIZE && visited[n + w] === blockType) {

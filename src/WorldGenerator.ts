@@ -1,6 +1,7 @@
 import { BlockType } from "./blocks";
 import { Chunk, CHUNK_SIZE, ChunkPosition } from "./Chunk";
 import { createNoise2D } from "simplex-noise";
+import { SeededRandom } from "./SeededRandom";
 
 /**
  * Configuration for world generation
@@ -28,10 +29,12 @@ export const DEFAULT_WORLD_CONFIG: WorldGenerationConfig = {
 export class WorldGenerator {
   private config: WorldGenerationConfig;
   private noise2D: (x: number, y: number) => number;
+  private random: SeededRandom;
 
   constructor(config: Partial<WorldGenerationConfig> = {}) {
     this.config = { ...DEFAULT_WORLD_CONFIG, ...config };
-    this.noise2D = createNoise2D(this.config.seed);
+    this.random = new SeededRandom(this.config.seed);
+    this.noise2D = createNoise2D(this.random.next.bind(this.random));
   }
 
   /**
