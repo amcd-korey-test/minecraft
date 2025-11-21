@@ -149,12 +149,12 @@ export class Chunk {
               const blockConfig = BLOCK_CONFIG[blockType];
               const color = new THREE.Color(blockConfig.color);
 
-              if (blockType === this.getBlock(x[0], x[1], x[2])) {
+              if (blockType !== this.getBlock(x[0], x[1], x[2])) {
                 indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2);
                 indices.push(vertexIndex, vertexIndex + 2, vertexIndex + 3);
               } else {
-                indices.push(vertexIndex, vertexIndex + 2, vertexIndex + 1);
-                indices.push(vertexIndex, vertexIndex + 3, vertexIndex + 2);
+                indices.push(vertexIndex + 2, vertexIndex + 1, vertexIndex);
+                indices.push(vertexIndex + 3, vertexIndex + 2, vertexIndex);
               }
 
               vertices.push(...v1, ...v2, ...v3, ...v4);
