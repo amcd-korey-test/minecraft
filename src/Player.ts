@@ -3,6 +3,8 @@ import { ChunkManager } from "./ChunkManager";
 import { CHUNK_SIZE } from "./Chunk";
 import { BlockType } from "./blocks";
 
+const COLLISION_SKIN_WIDTH = 0.001;
+
 /**
  * Player controller with physics and collision detection
  */
@@ -118,6 +120,7 @@ export class Player {
     }
     
     // Apply velocity with collision detection
+    this.onGround = false;
     this.moveWithCollision(deltaTime);
     
     // Update camera position
@@ -173,7 +176,7 @@ export class Player {
                 if (this.velocity.y > 0) {
                   this.position.y -= depth.y;
                 } else {
-                  this.position.y += depth.y;
+                  this.position.y += depth.y + COLLISION_SKIN_WIDTH;
                   this.onGround = true;
                 }
                 this.velocity.y = 0;
