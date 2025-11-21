@@ -33,6 +33,10 @@ export class Chunk {
     return this.blocks;
   }
 
+  setBlocks(blocks: Uint8Array) {
+    this.blocks = blocks;
+  }
+
   /**
    * Get block type at local chunk coordinates (0 to CHUNK_SIZE-1)
    */

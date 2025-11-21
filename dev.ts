@@ -23,7 +23,7 @@ const server = serve({
       });
     }
 
-    const filePath = `${outdir}${url.pathname.replace("/src", "").replace(".ts", ".js")}`;
+    const filePath = `${outdir}${url.pathname.replace("/src", "")}`;
     const file = Bun.file(filePath);
     if (await file.exists()) {
       return new Response(file, {

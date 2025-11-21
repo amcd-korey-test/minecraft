@@ -155,7 +155,20 @@ function createUI(chunkManager: ChunkManager, dayNightCycle: DayNightCycle) {
   infoDiv.style.pointerEvents = "none";
   document.body.appendChild(infoDiv);
 
-  function update(camera: THREE.Camera, player: Player) {
+  let frameCount = 0;
+  let elapsedTime = 0;
+  let fps = 0;
+
+  function update(dt: number, camera: THREE.Camera, player: Player) {
+    frameCount++;
+    elapsedTime += dt;
+
+    if (elapsedTime >= 1) {
+      fps = frameCount;
+      frameCount = 0;
+      elapsedTime -= 1;
+    }
+
     const pos = camera.position;
     const chunkPos = {
       x: Math.floor(pos.x / CHUNK_SIZE),
@@ -171,6 +184,7 @@ function createUI(chunkManager: ChunkManager, dayNightCycle: DayNightCycle) {
       <strong>Minecraft World Demo</strong><br>
       Click to lock mouse<br>
       WASD: Move | Space: Jump | Mouse: Look<br><br>
+      FPS: ${fps.toFixed(1)}<br><br>
       Position: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}<br>
       Chunk: ${chunkPos.x}, ${chunkPos.y}, ${chunkPos.z}<br>
       Loaded Chunks: ${chunkManager.getLoadedChunkCount()}<br>
@@ -246,8 +260,7 @@ async function main(): Promise<void> {
   // Animation loop
   let lastTime = performance.now();
 
-  function animate() {
-    const currentTime = performance.now();
+  function animate(currentTime: DOMHighResTimeStamp) {
     const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
     lastTime = currentTime;
 
@@ -261,14 +274,14 @@ async function main(): Promise<void> {
     chunkManager.updateChunks(player.getPosition());
 
     // Update UI
-    ui.update(camera, player);
+    ui.update(deltaTime, camera, player);
 
     // Render scene
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
   }
 
-  animate();
+  requestAnimationFrame(animate);
 
   console.log("Minecraft world initialized!");
   console.log(`World seed: ${worldGenerator.getSeed()}`);
