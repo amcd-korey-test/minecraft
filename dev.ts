@@ -3,21 +3,22 @@ import { build } from "bun";
 
 const outdir = "dist";
 
-await build({
-  entrypoints: ["./src/main.ts", "./src/worldGenerator.worker.ts"],
-  outdir,
-  target: "browser",
-  format: "esm",
-  sourcemap: "inline",
-  minify: false,
-  splitting: true,
-});
-
 const server = serve({
   port: Number(process.env.PORT || 7777),
   async fetch(req) {
+
     const url = new URL(req.url);
     if (url.pathname === "/" || url.pathname === "/index.html") {
+      await build({
+        entrypoints: ["./src/main.ts", "./src/worldGenerator.worker.ts"],
+        outdir,
+        target: "browser",
+        format: "esm",
+        sourcemap: "inline",
+        minify: false,
+        splitting: true,
+      });
+
       return new Response(Bun.file("src/index.html"), {
         headers: { "Content-Type": "text/html; charset=utf-8" },
       });
