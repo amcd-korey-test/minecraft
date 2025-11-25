@@ -55,7 +55,9 @@ export class Player {
    */
   update(deltaTime: number, keys: { w: boolean; a: boolean; s: boolean; d: boolean; space: boolean }) {
     // Apply gravity
-    this.velocity.y -= this.gravity * deltaTime;
+    if (!this.onGround) {
+      this.velocity.y -= this.gravity * deltaTime;
+    }
     
     // Calculate intended movement direction from input
     const moveDirection = new THREE.Vector3();
