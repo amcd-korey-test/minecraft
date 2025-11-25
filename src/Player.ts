@@ -52,43 +52,51 @@ export class Player {
    * Update player physics and movement
    */
   update(deltaTime: number, keys: { w: boolean; a: boolean; s: boolean; d: boolean; space: boolean }) {
+    // Check ground status
+    this.onGround = this.isGrounded();
+
     // Apply gravity
-    this.velocity.y -= this.gravity * deltaTime;
-    
+    if (!this.onGround) {
+      this.velocity.y -= this.gravity * deltaTime;
+    } else {
+      // Stop downward movement when on ground
+      this.velocity.y = Math.max(0, this.velocity.y);
+    }
+
     // Calculate intended movement direction from input
     const moveDirection = new THREE.Vector3();
     if (keys.w) moveDirection.z -= 1;
     if (keys.s) moveDirection.z += 1;
     if (keys.a) moveDirection.x -= 1;
     if (keys.d) moveDirection.x += 1;
-    
+
     // Normalize to prevent faster diagonal movement
     if (moveDirection.length() > 0) {
       moveDirection.normalize();
     }
-    
+
     // Apply camera rotation to movement direction (only yaw, not pitch)
     const yaw = this.camera.rotation.y;
     moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-    
+
     // Calculate target horizontal velocity
     const targetVelocity = moveDirection.multiplyScalar(this.moveSpeed);
-    
+
     // Apply acceleration/friction to horizontal movement
     const currentHorizontalVel = new THREE.Vector2(this.velocity.x, this.velocity.z);
     const targetHorizontalVel = new THREE.Vector2(targetVelocity.x, targetVelocity.z);
-    
+
     if (this.onGround) {
       // On ground: apply friction and acceleration
       const velocityDiff = targetHorizontalVel.clone().sub(currentHorizontalVel);
       const accelAmount = Math.min(this.acceleration * deltaTime, velocityDiff.length());
-      
+
       if (velocityDiff.length() > 0) {
         velocityDiff.normalize().multiplyScalar(accelAmount);
         this.velocity.x += velocityDiff.x;
         this.velocity.z += velocityDiff.y;
       }
-      
+
       // Apply friction when not moving
       if (moveDirection.length() === 0) {
         const frictionAmount = Math.min(this.friction * deltaTime, currentHorizontalVel.length());
@@ -104,19 +112,19 @@ export class Player {
       this.velocity.x += targetVelocity.x * airControl * deltaTime;
       this.velocity.z += targetVelocity.z * airControl * deltaTime;
     }
-    
+
     // Handle jumping
     if (keys.space && this.onGround && this.canJump) {
       this.velocity.y = this.jumpForce;
       this.onGround = false;
       this.canJump = false;
     }
-    
+
     // Reset jump if space is released
     if (!keys.space) {
       this.canJump = true;
     }
-    
+
     // Apply velocity with collision detection
     this.moveWithCollision(deltaTime);
     
@@ -190,6 +198,46 @@ export class Player {
         }
       }
     }
+  }
+  /**
+   * Check if the player is standing on the ground
+   */
+  private isGrounded(): boolean {
+    const groundCheckDepth = 0.1;
+    // Bounding box for a thin slice at the player's feet
+    const feetBox = new THREE.Box3(
+      new THREE.Vector3(
+        this.position.x - this.width / 2,
+        this.position.y - groundCheckDepth,
+        this.position.z - this.width / 2
+      ),
+      new THREE.Vector3(
+        this.position.x + this.width / 2,
+        this.position.y,
+        this.position.z + this.width / 2
+      )
+    );
+
+    const min = feetBox.min.clone().floor();
+    const max = feetBox.max.clone().ceil();
+
+    for (let x = min.x; x < max.x; x++) {
+      for (let y = min.y; y < max.y; y++) {
+        for (let z = min.z; z < max.z; z++) {
+          const block = this.getBlockAt(x, y, z);
+          if (block !== BlockType.AIR && block !== BlockType.WATER) {
+            const blockBox = new THREE.Box3(
+              new THREE.Vector3(x, y, z),
+              new THREE.Vector3(x + 1, y + 1, z + 1)
+            );
+            if (feetBox.intersectsBox(blockBox)) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+    return false;
   }
   
   /**
